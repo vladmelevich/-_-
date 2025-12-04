@@ -1,71 +1,164 @@
-import Sidebar from './components/Sidebar.jsx';
+import { useState, useEffect, useCallback } from 'react';
 import Topbar from './components/Topbar.jsx';
-import HeroCarousel from './components/HeroCarousel.jsx';
+import SubjectSelector from './components/SubjectSelector.jsx';
 import CategoryPills from './components/CategoryPills.jsx';
 import GameGrid from './components/GameGrid.jsx';
-import PromoBoard from './components/PromoBoard.jsx';
+import ModePage from './components/ModePage.jsx';
 import './styles.css';
 
-const categories = [
-  { id: 'lobby', label: 'Лобби', icon: 'grid' },
-  { id: 'popular', label: 'Популярные', icon: 'star' },
-  { id: 'originals', label: 'Mell Originals', icon: 'shield' },
-  { id: 'top', label: 'Топ игр', icon: 'fire' },
-  { id: 'slots', label: 'Слоты', icon: 'slot' },
-  { id: 'roulette', label: 'Рулетка', icon: 'roulette' },
-  { id: 'new', label: 'Новые', icon: 'spark', badge: 'new' },
-  { id: 'live', label: 'Live казино', icon: 'live' },
-  { id: 'bonus-buy', label: 'Bonus buy', icon: 'gift' },
-  { id: 'rush', label: 'Быстрые игры', icon: 'zap' },
-  { id: 'blackjack', label: 'Блэкджек', icon: 'cards' },
-  { id: 'drops', label: 'Drops & Wins', icon: 'crown' },
-  { id: 'wager', label: 'Отыгрыш бонуса', icon: 'progress' }
+const gameModes = [
+  { id: 'dice-sum', label: 'Dice на сумму', icon: 'grid' },
+  { id: 'dice-american', label: 'Dice американский', icon: 'grid' },
+  { id: 'coinflip', label: 'Coinflip', icon: 'grid' },
+  { id: 'blackjack', label: 'Blackjack', icon: 'cards' },
+  { id: 'football', label: 'Football', icon: 'zap' },
+  { id: 'nvuti', label: 'Nvuti', icon: 'star' }
 ];
 
 const games = [
-  { id: 1, title: 'Sugar Rush 1000', provider: 'Pragmatic Play', tag: 'Drops & Wins', cover: 'sugar' },
-  { id: 2, title: 'Hell Hot 100', provider: 'Endorphina', cover: 'hell' },
-  { id: 3, title: 'Zeus vs Hades Gods of War', provider: 'Pragmatic Play', cover: 'zeus' },
-  { id: 4, title: 'Astronaut', provider: 'Spribe', cover: 'astronaut' },
-  { id: 5, title: 'Chicken Pirate', provider: 'Evoplay', tag: 'Bonus Game', cover: 'chicken' },
-  { id: 6, title: '777 Coins', provider: '3 Oaks Gaming', cover: 'coins' },
-  { id: 7, title: 'Gates of Olympus', provider: 'Pragmatic Play', cover: 'olympus' },
-  { id: 8, title: 'Le King', provider: 'Hacksaw', cover: 'king' },
-  { id: 9, title: 'The Dog House', provider: 'Pragmatic Play', tag: 'Drops & Wins', cover: 'dog' }
-];
-
-const promos = [
-  {
-    id: 'tournament',
-    title: 'Забирай 11 760 000€ от Pragmatic Play',
-    action: 'Подробнее',
-    cover: 'trophy'
-  },
-  {
-    id: 'coins',
-    title: 'Обменивай Mell Coins на деньги!',
-    action: 'Подробнее',
-    cover: 'coins'
-  },
-  {
-    id: 'bonus',
-    title: 'Бонус 550% + 400 фриспинов!',
-    action: 'Забрать',
-    cover: 'bonus'
-  }
+  { id: 1, title: 'Dice на сумму', provider: 'Pragmatic Play', tag: 'Drops & Wins', cover: 'sugar', subject: 'ТРПО', mode: 'dice-sum' },
+  { id: 2, title: 'Blackjack', provider: 'Endorphina', cover: 'hell', subject: 'КПиЯП', mode: 'blackjack' },
+  { id: 3, title: 'Football', provider: 'Pragmatic Play', cover: 'zeus', subject: 'ПСИИП', mode: 'football' },
+  { id: 4, title: 'Nvuti', provider: 'Spribe', cover: 'astronaut', subject: 'ТРПО', mode: 'nvuti' },
+  { id: 5, title: 'Dice американский', provider: 'Evoplay', tag: 'Bonus Game', cover: 'chicken', subject: 'КПиЯП', mode: 'dice-american' },
+  { id: 6, title: 'Blackjack', provider: '3 Oaks Gaming', cover: 'coins', subject: 'ПСИИП', mode: 'blackjack' },
+  { id: 7, title: 'Football', provider: 'Pragmatic Play', cover: 'olympus', subject: 'ТРПО', mode: 'football' },
+  { id: 8, title: 'Nvuti', provider: 'Hacksaw', cover: 'king', subject: 'КПиЯП', mode: 'nvuti' },
+  { id: 9, title: 'Dice на сумму', provider: 'Pragmatic Play', tag: 'Drops & Wins', cover: 'dog', subject: 'ПСИИП', mode: 'dice-sum' },
+  { id: 10, title: 'Coinflip', provider: 'Spribe', cover: 'sugar', subject: 'ТРПО', mode: 'coinflip' }
 ];
 
 function App() {
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedMode, setSelectedMode] = useState(null);
+  const [currentPage, setCurrentPage] = useState('main'); // 'main' или 'mode'
+  const [currentMode, setCurrentMode] = useState(null);
+
+  // Получаем доступные режимы для выбранного предмета
+  const getAvailableModes = () => {
+    if (!selectedSubject) return gameModes;
+    const subjectGames = games.filter((game) => game.subject === selectedSubject);
+    const availableModeIds = [...new Set(subjectGames.map((game) => game.mode))];
+    return gameModes.filter((mode) => availableModeIds.includes(mode.id));
+  };
+
+  // Получаем доступные предметы для выбранного режима
+  const getAvailableSubjects = () => {
+    if (!selectedMode) return ['ТРПО', 'КПиЯП', 'ПСИИП'];
+    const modeGames = games.filter((game) => game.mode === selectedMode);
+    return [...new Set(modeGames.map((game) => game.subject))];
+  };
+
+  const handleSubjectSelect = (subject) => {
+    // Если предмет уже выбран, снимаем выбор
+    if (selectedSubject === subject) {
+      setSelectedSubject(null);
+      return;
+    }
+    setSelectedSubject(subject);
+    // Если выбранный режим не совместим с новым предметом, сбрасываем режим
+    if (selectedMode) {
+      const subjectGames = games.filter((game) => game.subject === subject);
+      const availableModes = [...new Set(subjectGames.map((game) => game.mode))];
+      if (!availableModes.includes(selectedMode)) {
+        setSelectedMode(null);
+      }
+    }
+  };
+
+  const handleModeSelect = (mode) => {
+    // Если режим уже выбран, снимаем выбор (отменяем фильтрацию)
+    if (selectedMode === mode) {
+      setSelectedMode(null);
+      return;
+    }
+    setSelectedMode(mode);
+    // Если выбранный предмет не совместим с новым режимом, сбрасываем предмет
+    if (selectedSubject) {
+      const modeGames = games.filter((game) => game.mode === mode);
+      const availableSubjects = [...new Set(modeGames.map((game) => game.subject))];
+      if (!availableSubjects.includes(selectedSubject)) {
+        setSelectedSubject(null);
+      }
+    }
+  };
+
+  const handleModePageOpen = useCallback((modeId) => {
+    const modeData = gameModes.find((m) => m.id === modeId);
+    if (modeData) {
+      setCurrentMode(modeData);
+      setCurrentPage('mode');
+    }
+  }, []);
+
+  const handleBackToMain = () => {
+    setCurrentPage('main');
+    setCurrentMode(null);
+  };
+
+  const handleResetFilters = () => {
+    setSelectedSubject(null);
+    setSelectedMode(null);
+  };
+
+  const filteredGames = games.filter((game) => {
+    if (selectedSubject && game.subject !== selectedSubject) return false;
+    if (selectedMode && game.mode !== selectedMode) return false;
+    return true;
+  });
+
+  const availableModes = getAvailableModes();
+  const availableSubjects = getAvailableSubjects();
+
+  // Слушаем событие смены режима
+  useEffect(() => {
+    const handleModeChange = (e) => {
+      const { modeId, startGame } = e.detail;
+      handleModePageOpen(modeId, startGame);
+    };
+    
+    window.addEventListener('modeChange', handleModeChange);
+    return () => {
+      window.removeEventListener('modeChange', handleModeChange);
+    };
+  }, [handleModePageOpen]);
+
+  if (currentPage === 'mode' && currentMode) {
+    return (
+      <div className="app-shell">
+        <div className="main-area">
+          <Topbar />
+          <ModePage
+            modeId={currentMode.id}
+            modeLabel={currentMode.label}
+            onBack={handleBackToMain}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
-      <Sidebar />
       <div className="main-area">
         <Topbar />
         <div className="content-area">
-          <HeroCarousel promos={promos} />
-          <PromoBoard />
-          <CategoryPills categories={categories} />
-          <GameGrid games={games} />
+          <SubjectSelector
+            onSubjectSelect={handleSubjectSelect}
+            selectedSubject={selectedSubject}
+            availableSubjects={availableSubjects}
+          />
+          <CategoryPills
+            modes={availableModes}
+            onModeSelect={handleModeSelect}
+            selectedMode={selectedMode}
+            onModePageOpen={handleModePageOpen}
+          />
+          <GameGrid
+            games={filteredGames}
+            onResetFilters={handleResetFilters}
+            onModePageOpen={handleModePageOpen}
+          />
         </div>
       </div>
     </div>

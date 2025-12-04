@@ -1,19 +1,20 @@
+import { useState } from 'react';
+
 const navItems = [
-  { id: 'home', label: 'Главная', icon: 'home' },
-  { id: 'bonus', label: 'Бонусы', badge: 4, icon: 'gift' },
-  { id: 'actions', label: 'Акции', icon: 'fire' },
-  { id: 'slots', label: 'Слоты', icon: 'slots' },
-  { id: 'live', label: 'Live казино', icon: 'live' },
-  { id: 'buy', label: 'Bonus buy', icon: 'bonus' },
-  { id: 'new', label: 'Новые', icon: 'spark' }
+  { id: 'home', label: 'Главная', icon: 'home' }
 ];
 
 const bottomNav = [
-  { id: 'rules', label: 'Правила', icon: 'rules' },
   { id: 'support', label: 'Поддержка', icon: 'support' }
 ];
 
 function Sidebar() {
+  const [selectedRole, setSelectedRole] = useState('student');
+
+  const handleRoleChange = (role) => {
+    setSelectedRole(role);
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
@@ -24,24 +25,22 @@ function Sidebar() {
             <small>хаха сыграй в казик получи варик</small>
           </div>
         </div>
-        <div className="sidebar__mode-switch">
-          <button className="mode-button mode-button--active" type="button">
-            <span className="icon icon-casino" aria-hidden />
-            <span>Казино</span>
-          </button>
-          <button className="mode-button" type="button">
-            <span className="icon icon-sport" aria-hidden />
-            <span>Спорт</span>
-          </button>
-        </div>
       </div>
-      <div className="sidebar__profile-card">
-        <div className="profile-avatar">?</div>
-        <div>
-          <div className="profile-title">Войти</div>
-          <div className="profile-subtitle">Создай аккаунт за 10 секунд</div>
-        </div>
-        <button className="profile-toggle">›</button>
+      <div className="sidebar__role-switch">
+        <button
+          className={`role-button ${selectedRole === 'student' ? 'role-button--active' : ''}`}
+          type="button"
+          onClick={() => handleRoleChange('student')}
+        >
+          <span>Ученик</span>
+        </button>
+        <button
+          className={`role-button ${selectedRole === 'teacher' ? 'role-button--active' : ''}`}
+          type="button"
+          onClick={() => handleRoleChange('teacher')}
+        >
+          <span>Преподаватель</span>
+        </button>
       </div>
       <div className="sidebar__online">
         <span className="online-dot" />
