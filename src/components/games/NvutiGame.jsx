@@ -1,102 +1,159 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
-function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
+function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, playerRole, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        playerRole: { required: true, type: 'string' },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'NvutiGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы NvutiGame', validation.errors);
+    } else {
+      log('component', 'NvutiGame инициализирован', { rounds, playerRole, isBotGame });
+    }
+  }, []);
+  
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
-  const [teacherChoice, setTeacherChoice] = useState(null); // 'low' (1-50) or 'high' (51-100)
+  const [teacherChoice, setTeacherChoice] = useState(null);
   const [randomNumber, setRandomNumber] = useState(null);
   const [isWaiting, setIsWaiting] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [roundFinished, setRoundFinished] = useState(false);
+  const processingRef = useRef(false);
 
-  // Определяем, является ли игрок преподавателем
   const isTeacher = playerRole === 'teacher';
 
-  const handleChoice = (choice) => {
-    if (isWaiting || teacherChoice !== null || isBlocked) return;
-    if (!isTeacher) {
+  const handleChoice = (choice, forceBot = false) => {
+    // Если это бот, пропускаем проверку isTeacher
+    if (isWaiting || teacherChoice !== null || isBlocked || (!isTeacher && !forceBot) || processingRef.current) {
+      log('game', 'Попытка выбора заблокирована', { isWaiting, teacherChoice, isBlocked, isTeacher, forceBot });
       return;
     }
     
+    if (choice !== 'low' && choice !== 'high') {
+      logError('validation', 'Неверный выбор диапазона', { choice });
+      return;
+    }
+    
+    processingRef.current = true;
+    logAction('nvutiChoice', { choice, playerRole });
     setTeacherChoice(choice);
     setIsWaiting(true);
     
-    // Генерируем случайное число
+    const roundNumber = currentRound;
+    
+    // Показываем выбор преподавателя обоим участникам
     setTimeout(() => {
       const number = Math.floor(Math.random() * 100) + 1;
       setRandomNumber(number);
       
       const teacherWon = (choice === 'low' && number <= 50) || (choice === 'high' && number > 50);
       
-      setPlayerScore(prevScore => {
-        setOpponentScore(prevOpponentScore => {
-          let newPlayerScore = prevScore;
-          let newOpponentScore = prevOpponentScore;
-          
-          if (teacherWon) {
-            newPlayerScore = prevScore + 1;
-          } else {
-            newOpponentScore = prevOpponentScore + 1;
-          }
-          
-          setIsWaiting(false);
-          setRoundFinished(true);
-          
-          // Проверка на автопроигрыш (> 50% раундов)
-          const totalRounds = rounds;
-          const halfRounds = Math.ceil(totalRounds / 2);
-          
-          if (newPlayerScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(true);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          if (newOpponentScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(false);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          // Автоматический переход к следующему раунду
-          if (currentRound < rounds) {
-            setTimeout(() => {
-              setCurrentRound(prev => prev + 1);
-              setTeacherChoice(null);
-              setRandomNumber(null);
-              setRoundFinished(false);
-              if (onRoundFinish) onRoundFinish(currentRound, teacherWon);
-            }, 1500);
-          } else {
-            setIsBlocked(true);
-            const isWinner = newPlayerScore > newOpponentScore;
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(isWinner);
-            }, 1000);
-          }
-          
-          return newOpponentScore;
+      setIsWaiting(false);
+      
+      // Обновляем счет только один раз и проверяем условия завершения игры
+      setTimeout(() => {
+        setPlayerScore(prevPlayer => {
+          setOpponentScore(prevOpponent => {
+            // Обновляем счет только если есть победитель
+            let newPlayerScore = prevPlayer;
+            let newOpponentScore = prevOpponent;
+            
+            if (teacherWon) {
+              // Преподаватель выиграл
+              newPlayerScore = prevPlayer + 1;
+            } else {
+              // Ученик выиграл
+              newOpponentScore = prevOpponent + 1;
+            }
+            
+            const halfRounds = Math.ceil(rounds / 2);
+            
+            if (newPlayerScore > halfRounds) {
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(true);
+              }, 2000);
+              return newOpponentScore;
+            }
+            
+            if (newOpponentScore > halfRounds) {
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(false);
+              }, 2000);
+              return newOpponentScore;
+            }
+            
+            setCurrentRound(prevRound => {
+              if (prevRound === roundNumber && prevRound < rounds) {
+                const nextRound = prevRound + 1;
+                setTimeout(() => {
+                  if (onRoundFinish) onRoundFinish(prevRound, teacherWon);
+                  setTeacherChoice(null);
+                  setRandomNumber(null);
+                  processingRef.current = false;
+                }, 2500);
+                return nextRound;
+              } else if (prevRound === roundNumber && prevRound >= rounds) {
+                setIsBlocked(true);
+                processingRef.current = false;
+                const isWinner = newPlayerScore > newOpponentScore;
+                setTimeout(() => {
+                  if (onGameFinish) onGameFinish(isWinner);
+                }, 2000);
+                return prevRound;
+              }
+              processingRef.current = false;
+              return prevRound;
+            });
+            
+            return newOpponentScore;
+          });
+          return newPlayerScore;
         });
-        return newPlayerScore;
-      });
-    }, 600);
+      }, 1500);
+    }, 1200);
   };
 
-  // Сброс состояния при переходе к новому раунду
   useEffect(() => {
-    if (currentRound <= rounds && !isBlocked) {
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setTeacherChoice(null);
       setRandomNumber(null);
       setIsWaiting(false);
-      setRoundFinished(false);
+      processingRef.current = false;
     }
-  }, [currentRound]);
+  }, [currentRound, rounds, isBlocked]);
+  
+  // Логика бота - бот всегда играет за противоположную роль
+  // Если игрок - ученик, бот играет за преподавателя (делает выбор)
+  // Если игрок - преподаватель, бот не нужен (только преподаватель делает выбор)
+  useEffect(() => {
+    // Бот играет за преподавателя только если игрок - ученик
+    if (isBotGame && !isTeacher && currentRound <= rounds && !isBlocked && 
+        teacherChoice === null && !isWaiting && !processingRef.current) {
+      const timer = setTimeout(() => {
+        if (!isBlocked && teacherChoice === null && !isWaiting && !processingRef.current && currentRound <= rounds) {
+          const botChoice = Math.random() < 0.5 ? 'low' : 'high';
+          logAction('botNvutiChoice', { choice: botChoice, round: currentRound });
+          handleChoice(botChoice, true); // forceBot = true для бота
+        }
+      }, 800 + Math.random() * 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isBotGame, isTeacher, currentRound, isBlocked, teacherChoice, isWaiting]);
 
   return (
     <div className="nvuti-game">
@@ -105,7 +162,7 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
           <span>Вы: {playerScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, rounds)}/{rounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
           <span>Соперник: {opponentScore}</span>
@@ -116,9 +173,7 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
         <div className="nvuti-choice-section">
           <h3>{isTeacher ? 'Выберите диапазон (Преподаватель)' : 'Ожидание выбора преподавателя'}</h3>
           {!isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
-            <div className="game-status">
-              Ожидание выбора преподавателя...
-            </div>
+            <div className="game-status">Ожидание выбора преподавателя...</div>
           )}
           {isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
             <div className="nvuti-choices">
@@ -154,6 +209,14 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
           )}
         </div>
         
+        {teacherChoice !== null && (
+          <div className="nvuti-choice-display">
+            <div className="nvuti-choice-info">
+              Преподаватель выбрал: <strong>{teacherChoice === 'low' ? 'Низкий (1-50)' : 'Высокий (51-100)'}</strong>
+            </div>
+          </div>
+        )}
+        
         {randomNumber !== null && (
           <div className="nvuti-result">
             <div className="nvuti-number-display">
@@ -176,8 +239,8 @@ NvutiGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
   onGameFinish: PropTypes.func.isRequired,
-  playerRole: PropTypes.string
+  playerRole: PropTypes.string,
+  isBotGame: PropTypes.bool
 };
 
 export default NvutiGame;
-

@@ -1,7 +1,26 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
-function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
+function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'DiceAmericanGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы DiceAmericanGame', validation.errors);
+    } else {
+      log('component', 'DiceAmericanGame инициализирован', { rounds, isBotGame });
+    }
+  }, []);
+  
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
@@ -12,204 +31,355 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
   const [playerRerolls, setPlayerRerolls] = useState(2);
   const [opponentRerolls, setOpponentRerolls] = useState(2);
   const [isRolling, setIsRolling] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
-  const [gameResult, setGameResult] = useState(null); // 'win-all', 'lose-all', null
   const [isBlocked, setIsBlocked] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [opponentReady, setOpponentReady] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [isProcessingRerolls, setIsProcessingRerolls] = useState(false);
+  const processingRef = useRef(false);
+  const checkRoundFinishCalledRef = useRef(false);
 
-  const rollDice = () => {
-    return Math.floor(Math.random() * 6) + 1;
-  };
+  const rollDice = () => Math.floor(Math.random() * 6) + 1;
 
-  const checkSpecialCombination = (dice) => {
+  const checkSpecial = (dice) => {
     const sorted = [...dice].sort((a, b) => a - b);
-    
-    // Проверка на 1, 2, 3 (проигрыш всех раундов)
-    if (sorted[0] === 1 && sorted[1] === 2 && sorted[2] === 3) {
-      return 'lose-all';
-    }
-    
-    // Проверка на 4, 5, 6 (выигрыш всех раундов)
-    if (sorted[0] === 4 && sorted[1] === 5 && sorted[2] === 6) {
-      return 'win-all';
-    }
-    
+    if (sorted[0] === 1 && sorted[1] === 2 && sorted[2] === 3) return 'lose-all';
+    if (sorted[0] === 4 && sorted[1] === 5 && sorted[2] === 6) return 'win-all';
     return null;
   };
 
   const calculatePoints = (dice) => {
     const counts = {};
-    dice.forEach(d => {
-      counts[d] = (counts[d] || 0) + 1;
-    });
+    dice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
     
     const values = Object.values(counts);
-    
-    // Три одинаковых
-    if (values.includes(3)) {
-      return 'three-of-a-kind'; // Специальный маркер для трех одинаковых
-    }
-    
-    // Пара + значение
+    if (values.includes(3)) return 'three-of-a-kind';
     if (values.includes(2)) {
-      const pairValue = Object.keys(counts).find(k => counts[k] === 2);
       const singleValue = Object.keys(counts).find(k => counts[k] === 1);
       return parseInt(singleValue);
     }
-    
-    // Три разных (не 1,2,3 и не 4,5,6)
     return 0;
   };
 
-  // Проверка, можно ли перебросить кубики
   const canReroll = (dice) => {
-    if (dice.length !== 3 || dice[0] === 0) return false;
-    
+    if (dice[0] === 0 || dice.length !== 3) return false;
     const sorted = [...dice].sort((a, b) => a - b);
-    
-    // Нельзя перебросить, если 1,2,3 или 4,5,6
     if ((sorted[0] === 1 && sorted[1] === 2 && sorted[2] === 3) ||
-        (sorted[0] === 4 && sorted[1] === 5 && sorted[2] === 6)) {
-      return false;
-    }
-    
-    // Можно перебросить только если все числа разные
-    const unique = new Set(dice);
-    return unique.size === 3;
+        (sorted[0] === 4 && sorted[1] === 5 && sorted[2] === 6)) return false;
+    return new Set(dice).size === 3;
   };
 
-  const handleRoll = useCallback(() => {
-    if (isRolling || gameOver || isBlocked) return;
+  const startRound = () => {
+    if (isBlocked || isRolling || isProcessingRerolls || processingRef.current || currentRound > rounds) return;
     
+    processingRef.current = true;
+    checkRoundFinishCalledRef.current = false;
     setIsRolling(true);
+    setPlayerReady(false);
+    setOpponentReady(false);
+    setIsProcessingRerolls(false);
     
+    const roundNumber = currentRound;
     const playerRolls = [rollDice(), rollDice(), rollDice()];
     const opponentRolls = [rollDice(), rollDice(), rollDice()];
     
     setPlayerDice(playerRolls);
     setOpponentDice(opponentRolls);
+    setPlayerRerolls(2);
+    setOpponentRerolls(2);
     
     setTimeout(() => {
+      if (isBlocked) {
+        processingRef.current = false;
+        return;
+      }
+      
       setIsRolling(false);
       
-      // Проверка специальных комбинаций
-      const playerSpecial = checkSpecialCombination(playerRolls);
-      const opponentSpecial = checkSpecialCombination(opponentRolls);
+      const playerSpecial = checkSpecial(playerRolls);
+      const opponentSpecial = checkSpecial(opponentRolls);
       
       if (playerSpecial === 'lose-all' || opponentSpecial === 'win-all') {
         setGameOver(true);
-        setGameResult(false);
         setIsBlocked(true);
+        processingRef.current = false;
         setTimeout(() => {
           if (onGameFinish) onGameFinish(false);
-        }, 1000);
+        }, 2000);
         return;
       }
       
       if (playerSpecial === 'win-all' || opponentSpecial === 'lose-all') {
         setGameOver(true);
-        setGameResult(true);
         setIsBlocked(true);
+        processingRef.current = false;
         setTimeout(() => {
           if (onGameFinish) onGameFinish(true);
-        }, 1000);
+        }, 2000);
         return;
       }
       
-      // Подсчет очков
       const playerPts = calculatePoints(playerRolls);
       const opponentPts = calculatePoints(opponentRolls);
       
       setPlayerPoints(typeof playerPts === 'number' ? playerPts : 0);
       setOpponentPoints(typeof opponentPts === 'number' ? opponentPts : 0);
       
-      // Сбрасываем готовность игроков
-      setPlayerReady(false);
-      setOpponentReady(false);
-      
-      let newPlayerScore = playerScore;
-      let newOpponentScore = opponentScore;
-      
-      // Проверка на три одинаковых
-      const playerThreeKind = playerPts === 'three-of-a-kind';
-      const opponentThreeKind = opponentPts === 'three-of-a-kind';
-      
-      // Если у игрока три одинаковых, а у соперника нет - победа игрока
-      if (playerThreeKind && !opponentThreeKind) {
-        newPlayerScore = playerScore + 1;
-        setPlayerScore(newPlayerScore);
-      }
-      // Если у соперника три одинаковых, а у игрока нет - победа соперника
-      else if (opponentThreeKind && !playerThreeKind) {
-        newOpponentScore = opponentScore + 1;
-        setOpponentScore(newOpponentScore);
-      }
-      // Если у обоих три одинаковых, сравниваем суммы
-      else if (playerThreeKind && opponentThreeKind) {
-        const playerSum = playerRolls.reduce((a, b) => a + b, 0);
-        const opponentSum = opponentRolls.reduce((a, b) => a + b, 0);
-        
-        if (playerSum > opponentSum) {
-          newPlayerScore = playerScore + 1;
-          setPlayerScore(newPlayerScore);
-        } else if (opponentSum > playerSum) {
-          newOpponentScore = opponentScore + 1;
-          setOpponentScore(newOpponentScore);
+      // Автоматические перебросы для игрока
+      setTimeout(() => {
+        if (!isBlocked) {
+          processPlayerRerolls(playerRolls, playerPts, 2);
         }
-      }
-      // Если у обоих не три одинаковых, сравниваем очки
-      else if (typeof playerPts === 'number' && typeof opponentPts === 'number') {
-        if (playerPts > opponentPts) {
-          newPlayerScore = playerScore + 1;
-          setPlayerScore(newPlayerScore);
-        } else if (opponentPts > playerPts) {
-          newOpponentScore = opponentScore + 1;
-          setOpponentScore(newOpponentScore);
-        }
-      }
+      }, 500);
       
-      // Проверка на автопроигрыш (> 50% раундов)
-      const totalRounds = rounds;
-      const halfRounds = Math.ceil(totalRounds / 2);
-      
-      if (newPlayerScore > halfRounds) {
-        setIsBlocked(true);
+      // Симуляция перебросов соперника (бот)
+      if (isBotGame) {
         setTimeout(() => {
-          if (onGameFinish) onGameFinish(true);
-        }, 2000);
-        return;
-      }
-      
-      if (newOpponentScore > halfRounds) {
-        setIsBlocked(true);
+          if (isBlocked) {
+            processingRef.current = false;
+            return;
+          }
+          
+          let oppDice = [...opponentRolls];
+          let oppRerolls = 2;
+          
+          const processBotRerolls = () => {
+            if (isBlocked) return;
+            
+            if (oppRerolls > 0 && canReroll(oppDice)) {
+              const newRolls = [rollDice(), rollDice(), rollDice()];
+              const newPts = calculatePoints(newRolls);
+              oppDice = newRolls;
+              oppRerolls--;
+              
+              if (typeof newPts === 'number' && newPts > 0 || newPts === 'three-of-a-kind') {
+                setOpponentDice(oppDice);
+                setOpponentRerolls(oppRerolls);
+                setOpponentPoints(typeof newPts === 'number' ? newPts : 0);
+                
+                setTimeout(() => {
+                  if (!isBlocked) {
+                    setOpponentReady(true);
+                    logAction('botReady', { dice: oppDice, points: newPts });
+                  }
+                }, 1000);
+              } else if (oppRerolls > 0 && canReroll(oppDice)) {
+                setTimeout(processBotRerolls, 1500);
+              } else {
+                setOpponentDice(oppDice);
+                setOpponentRerolls(oppRerolls);
+                setOpponentPoints(typeof newPts === 'number' ? newPts : 0);
+                
+                setTimeout(() => {
+                  if (!isBlocked) {
+                    setOpponentReady(true);
+                    logAction('botReady', { dice: oppDice, points: newPts });
+                  }
+                }, 1000);
+              }
+            } else {
+              setOpponentDice(oppDice);
+              setOpponentRerolls(oppRerolls);
+              const oppPts = calculatePoints(oppDice);
+              setOpponentPoints(typeof oppPts === 'number' ? oppPts : 0);
+              
+              setTimeout(() => {
+                if (!isBlocked) {
+                  setOpponentReady(true);
+                  logAction('botReady', { dice: oppDice, points: oppPts });
+                }
+              }, 1000);
+            }
+          };
+          
+          processBotRerolls();
+        }, 1500);
+      } else {
         setTimeout(() => {
-          if (onGameFinish) onGameFinish(false);
-        }, 2000);
-        return;
+          if (!isBlocked) {
+            processingRef.current = false;
+          }
+        }, 500);
       }
-      
-      // Определяем победителя раунда
-      let roundWinner = null;
-      if (playerThreeKind && !opponentThreeKind) {
-        roundWinner = true;
-      } else if (opponentThreeKind && !playerThreeKind) {
-        roundWinner = false;
-      } else if (playerThreeKind && opponentThreeKind) {
-        const playerSum = playerRolls.reduce((a, b) => a + b, 0);
-        const opponentSum = opponentRolls.reduce((a, b) => a + b, 0);
-        roundWinner = playerSum > opponentSum;
-      } else if (typeof playerPts === 'number' && typeof opponentPts === 'number') {
-        roundWinner = playerPts > opponentPts;
-      }
-      
-      // Не переходим автоматически - ждем готовности обоих игроков
-    }, 800);
-  }, [isRolling, gameOver, isBlocked, playerScore, opponentScore, rounds, onRoundFinish, onGameFinish]);
+    }, 1000);
+  };
 
-  // Сброс состояния при переходе к новому раунду
+  const processPlayerRerolls = (initialDice, initialPts, rerollsLeft) => {
+    if (isBlocked) {
+      setIsProcessingRerolls(false);
+      processingRef.current = false;
+      return;
+    }
+    
+    if ((typeof initialPts === 'number' && initialPts > 0) || 
+        initialPts === 'three-of-a-kind' || 
+        !canReroll(initialDice) || 
+        rerollsLeft === 0) {
+      setTimeout(() => {
+        if (!isBlocked) {
+          setPlayerReady(true);
+          logAction('playerAutoReady', { dice: initialDice, points: initialPts });
+          setIsProcessingRerolls(false);
+          processingRef.current = false;
+        }
+      }, 1000);
+      return;
+    }
+    
+    setIsProcessingRerolls(true);
+    
+    setTimeout(() => {
+      if (isBlocked) {
+        setIsProcessingRerolls(false);
+        processingRef.current = false;
+        return;
+      }
+      
+      setIsRolling(true);
+      const newRolls = [rollDice(), rollDice(), rollDice()];
+      const newPts = calculatePoints(newRolls);
+      
+      setTimeout(() => {
+        if (isBlocked) {
+          setIsProcessingRerolls(false);
+          processingRef.current = false;
+          return;
+        }
+        
+        setIsRolling(false);
+        setPlayerDice(newRolls);
+        setPlayerRerolls(rerollsLeft - 1);
+        setPlayerPoints(typeof newPts === 'number' ? newPts : 0);
+        
+        if ((typeof newPts === 'number' && newPts > 0) || 
+            newPts === 'three-of-a-kind' || 
+            !canReroll(newRolls) || 
+            rerollsLeft - 1 === 0) {
+          setTimeout(() => {
+            if (!isBlocked) {
+              setPlayerReady(true);
+              logAction('playerAutoReady', { dice: newRolls, points: newPts });
+              setIsProcessingRerolls(false);
+              processingRef.current = false;
+            }
+          }, 1000);
+        } else {
+          processPlayerRerolls(newRolls, newPts, rerollsLeft - 1);
+        }
+      }, 1000);
+    }, 1000);
+  };
+
+  const checkRoundFinish = () => {
+    if (!playerReady || !opponentReady || isBlocked || processingRef.current || checkRoundFinishCalledRef.current) return;
+    
+    checkRoundFinishCalledRef.current = true;
+    processingRef.current = true;
+    
+    const playerPts = calculatePoints(playerDice);
+    const opponentPts = calculatePoints(opponentDice);
+    
+    let roundWinner = null;
+    const playerThree = playerPts === 'three-of-a-kind';
+    const opponentThree = opponentPts === 'three-of-a-kind';
+    
+    if (playerThree && !opponentThree) {
+      roundWinner = true;
+    } else if (opponentThree && !playerThree) {
+      roundWinner = false;
+    } else if (playerThree && opponentThree) {
+      const playerSum = playerDice.reduce((a, b) => a + b, 0);
+      const opponentSum = opponentDice.reduce((a, b) => a + b, 0);
+      if (playerSum > opponentSum) {
+        roundWinner = true;
+      } else if (opponentSum > playerSum) {
+        roundWinner = false;
+      }
+    } else if (typeof playerPts === 'number' && typeof opponentPts === 'number') {
+      if (playerPts > opponentPts) {
+        roundWinner = true;
+      } else if (opponentPts > playerPts) {
+        roundWinner = false;
+      }
+    }
+    
+    const roundNumber = currentRound;
+    
+    logAction('roundFinished', { roundWinner, playerPts, opponentPts, currentRound: roundNumber });
+    
+    // Обновляем счет только один раз
+    if (roundWinner === true) {
+      setPlayerScore(prev => prev + 1);
+    } else if (roundWinner === false) {
+      setOpponentScore(prev => prev + 1);
+    }
+    
+    // Проверяем условия завершения игры и переход к следующему раунду с задержкой, используя функциональные обновления
+    setTimeout(() => {
+      if (isBlocked) {
+        processingRef.current = false;
+        checkRoundFinishCalledRef.current = false;
+        return;
+      }
+      
+      setPlayerScore(prevPlayer => {
+        setOpponentScore(prevOpponent => {
+          const halfRounds = Math.ceil(rounds / 2);
+          
+          if (prevPlayer > halfRounds) {
+            setIsBlocked(true);
+            processingRef.current = false;
+            checkRoundFinishCalledRef.current = false;
+            setTimeout(() => {
+              if (onGameFinish) onGameFinish(true);
+            }, 2000);
+            return prevOpponent;
+          }
+          
+          if (prevOpponent > halfRounds) {
+            setIsBlocked(true);
+            processingRef.current = false;
+            checkRoundFinishCalledRef.current = false;
+            setTimeout(() => {
+              if (onGameFinish) onGameFinish(false);
+            }, 2000);
+            return prevOpponent;
+          }
+          
+          // Переход к следующему раунду (даже при ничьей) с задержкой
+          if (roundNumber < rounds) {
+            setTimeout(() => {
+              if (onRoundFinish) onRoundFinish(roundNumber, roundWinner);
+              setCurrentRound(roundNumber + 1);
+              processingRef.current = false;
+              checkRoundFinishCalledRef.current = false;
+            }, 2000);
+          } else {
+            setIsBlocked(true);
+            processingRef.current = false;
+            checkRoundFinishCalledRef.current = false;
+            const isWinner = prevPlayer > prevOpponent;
+            setTimeout(() => {
+              if (onGameFinish) onGameFinish(isWinner);
+            }, 2000);
+          }
+          
+          return prevOpponent;
+        });
+        return prevPlayer;
+      });
+    }, 1500);
+  };
+
   useEffect(() => {
-    if (currentRound <= rounds) {
+    if (playerReady && opponentReady && !isBlocked && !isProcessingRerolls && !processingRef.current && currentRound <= rounds && !checkRoundFinishCalledRef.current) {
+      checkRoundFinish();
+    }
+  }, [playerReady, opponentReady, isBlocked, isProcessingRerolls, currentRound, rounds]);
+
+  // Сброс кубиков при новом раунде
+  useEffect(() => {
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setPlayerDice([0, 0, 0]);
       setOpponentDice([0, 0, 0]);
       setPlayerPoints(0);
@@ -217,179 +387,26 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
       setPlayerRerolls(2);
       setOpponentRerolls(2);
       setIsRolling(false);
-      setGameOver(false);
-      setGameResult(null);
       setPlayerReady(false);
       setOpponentReady(false);
+      setGameOver(false);
+      setIsProcessingRerolls(false);
+      processingRef.current = false;
+      checkRoundFinishCalledRef.current = false;
     }
-  }, [currentRound]);
-
+  }, [currentRound, rounds, isBlocked]);
+  
   // Автоматический запуск раунда
   useEffect(() => {
-    if (!isBlocked && currentRound <= rounds && !isRolling && !gameOver && playerDice[0] === 0) {
+    if (currentRound <= rounds && !isBlocked && playerDice[0] === 0 && rounds > 0 && !isRolling && !isProcessingRerolls && !processingRef.current && currentRound >= 1) {
       const timer = setTimeout(() => {
-        if (!isRolling && !isBlocked && !gameOver) {
-          handleRoll();
+        if (!isBlocked && playerDice[0] === 0 && !isRolling && !isProcessingRerolls && !processingRef.current && currentRound <= rounds && currentRound >= 1) {
+          startRound();
         }
       }, 500);
-      
       return () => clearTimeout(timer);
     }
-  }, [currentRound, isBlocked, gameOver, isRolling, rounds, playerDice, handleRoll]);
-
-  const handleReroll = () => {
-    if (playerRerolls <= 0 || isRolling || isBlocked || !canReroll(playerDice)) return;
-    
-    setIsRolling(true);
-    const newRolls = [rollDice(), rollDice(), rollDice()];
-    const newPts = calculatePoints(newRolls);
-    
-    setPlayerDice(newRolls);
-    setPlayerRerolls(playerRerolls - 1);
-    setPlayerPoints(typeof newPts === 'number' ? newPts : 0);
-    
-    setTimeout(() => {
-      setIsRolling(false);
-      // Если выпала пара+значение или 3 одинаковых - можно готовиться
-      // Иначе можно продолжить переброс если есть попытки
-    }, 1000);
-  };
-
-  const handlePlayerReady = () => {
-    if (isBlocked || playerDice[0] === 0) return;
-    setPlayerReady(true);
-    checkRoundFinish();
-  };
-
-  const checkRoundFinish = () => {
-    if (playerReady && opponentReady && !isBlocked) {
-      // Оба игрока готовы - завершаем раунд
-      const playerPts = calculatePoints(playerDice);
-      const opponentPts = calculatePoints(opponentDice);
-      
-      let roundWinner = null;
-      const playerThreeKind = playerPts === 'three-of-a-kind';
-      const opponentThreeKind = opponentPts === 'three-of-a-kind';
-      
-      if (playerThreeKind && !opponentThreeKind) {
-        roundWinner = true;
-        setPlayerScore(prev => prev + 1);
-      } else if (opponentThreeKind && !playerThreeKind) {
-        roundWinner = false;
-        setOpponentScore(prev => prev + 1);
-      } else if (playerThreeKind && opponentThreeKind) {
-        const playerSum = playerDice.reduce((a, b) => a + b, 0);
-        const opponentSum = opponentDice.reduce((a, b) => a + b, 0);
-        if (playerSum > opponentSum) {
-          roundWinner = true;
-          setPlayerScore(prev => prev + 1);
-        } else if (opponentSum > playerSum) {
-          roundWinner = false;
-          setOpponentScore(prev => prev + 1);
-        }
-      } else if (typeof playerPts === 'number' && typeof opponentPts === 'number') {
-        if (playerPts > opponentPts) {
-          roundWinner = true;
-          setPlayerScore(prev => prev + 1);
-        } else if (opponentPts > playerPts) {
-          roundWinner = false;
-          setOpponentScore(prev => prev + 1);
-        }
-      }
-      
-      // Проверка на автопроигрыш и переход к следующему раунду
-      setTimeout(() => {
-        setPlayerScore(prevPlayerScore => {
-          setOpponentScore(prevOpponentScore => {
-            const totalRounds = rounds;
-            const halfRounds = Math.ceil(totalRounds / 2);
-            
-            if (prevPlayerScore > halfRounds) {
-              setIsBlocked(true);
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(true);
-              }, 1000);
-              return prevOpponentScore;
-            }
-            
-            if (prevOpponentScore > halfRounds) {
-              setIsBlocked(true);
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(false);
-              }, 1000);
-              return prevOpponentScore;
-            }
-            
-            // Переход к следующему раунду только если раунд завершен
-            if (roundWinner !== null) {
-              const currentRoundValue = currentRound;
-              if (currentRoundValue < rounds) {
-                setTimeout(() => {
-                  setCurrentRound(prev => {
-                    const nextRound = prev + 1;
-                    if (onRoundFinish) onRoundFinish(prev, roundWinner);
-                    return nextRound;
-                  });
-                }, 1200);
-              } else {
-                setIsBlocked(true);
-                const isWinner = prevPlayerScore > prevOpponentScore;
-                setTimeout(() => {
-                  if (onGameFinish) onGameFinish(isWinner);
-                }, 1000);
-              }
-            }
-            
-            return prevOpponentScore;
-          });
-          return prevPlayerScore;
-        });
-      }, 100);
-    }
-  };
-
-  // Симуляция готовности соперника (в реальном multiplayer это будет через сервер)
-  useEffect(() => {
-    if (playerDice[0] > 0 && opponentDice[0] > 0 && !opponentReady && !isBlocked && !playerReady) {
-      // Соперник автоматически готовится после небольшой задержки
-      const timer = setTimeout(() => {
-        if (!opponentReady && !isBlocked && opponentDice[0] > 0) {
-          // Симулируем перебросы соперника, если возможно
-          // Переброс продолжается пока не выпадет пара+значение или 3 одинаковых
-          let oppDice = [...opponentDice];
-          let oppRerolls = opponentRerolls;
-          
-          while (oppRerolls > 0 && canReroll(oppDice)) {
-            const newRolls = [rollDice(), rollDice(), rollDice()];
-            const newPts = calculatePoints(newRolls);
-            // Если выпала пара+значение или 3 одинаковых - останавливаемся
-            if (typeof newPts === 'number' && newPts > 0 || newPts === 'three-of-a-kind') {
-              oppDice = newRolls;
-              oppRerolls--;
-              break;
-            }
-            oppDice = newRolls;
-            oppRerolls--;
-          }
-          
-          setOpponentDice(oppDice);
-          setOpponentRerolls(oppRerolls);
-          const oppPts = calculatePoints(oppDice);
-          setOpponentPoints(typeof oppPts === 'number' ? oppPts : 0);
-          setOpponentReady(true);
-        }
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [playerDice, opponentDice]);
-  
-  // Проверяем готовность после обновления
-  useEffect(() => {
-    if (opponentReady && playerReady && !isBlocked) {
-      checkRoundFinish();
-    }
-  }, [playerReady, opponentReady]);
+  }, [currentRound, rounds, isBlocked, playerDice, isRolling, isProcessingRerolls]);
 
   return (
     <div className="dice-american-game">
@@ -398,16 +415,16 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
           <span>Вы: {playerScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, rounds)}/{rounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
           <span>Соперник: {opponentScore}</span>
         </div>
       </div>
       
-      {gameOver && gameResult !== null && (
-        <div className={`game-over-message ${gameResult ? 'game-over-message--win' : 'game-over-message--lose'}`}>
-          {gameResult ? 'Вы выиграли все раунды!' : 'Вы проиграли все раунды!'}
+      {gameOver && (
+        <div className="game-over-message">
+          {playerScore > opponentScore ? 'Вы выиграли все раунды!' : 'Вы проиграли все раунды!'}
         </div>
       )}
       
@@ -424,6 +441,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
           <div className="dice-info">
             <div>Очки: {typeof playerPoints === 'number' ? playerPoints : playerPoints === 'three-of-a-kind' ? 'Три одинаковых!' : playerPoints}</div>
             <div>Перебросов: {playerRerolls}</div>
+            {playerReady && <div className="ready-indicator">✓ Готов</div>}
           </div>
         </div>
         
@@ -438,43 +456,24 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
           </div>
           <div className="dice-info">
             <div>Очки: {typeof opponentPoints === 'number' ? opponentPoints : opponentPoints === 'three-of-a-kind' ? 'Три одинаковых!' : opponentPoints}</div>
+            {opponentReady && <div className="ready-indicator">✓ Готов</div>}
           </div>
         </div>
       </div>
       
-      {isRolling && (
+      {(isRolling || isProcessingRerolls) && (
         <div className="game-status">
-          Бросаем кубики...
+          {isProcessingRerolls ? 'Автоматические перебросы...' : 'Бросаем кубики...'}
         </div>
       )}
       
-      <div className="game-actions">
-        {playerRerolls > 0 && canReroll(playerDice) && !isBlocked && playerDice[0] > 0 && (
-          <button 
-            className="reroll-button" 
-            onClick={handleReroll}
-            disabled={isRolling || isBlocked}
-          >
-            Перебросить ({playerRerolls})
-          </button>
-        )}
-        
-        {!playerReady && !isBlocked && playerDice[0] > 0 && (
-          <button 
-            className="ready-button" 
-            onClick={handlePlayerReady}
-            disabled={isRolling || isBlocked}
-          >
-            Готов
-          </button>
-        )}
-        
-        {playerReady && !opponentReady && (
-          <div className="game-status">
-            Ожидание соперника...
-          </div>
-        )}
-      </div>
+      {playerReady && !opponentReady && !isBlocked && (
+        <div className="game-status">Ожидание соперника...</div>
+      )}
+      
+      {playerReady && opponentReady && !isBlocked && (
+        <div className="game-status">Определение победителя раунда...</div>
+      )}
     </div>
   );
 }
@@ -482,8 +481,8 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish }) {
 DiceAmericanGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
-  onGameFinish: PropTypes.func.isRequired
+  onGameFinish: PropTypes.func.isRequired,
+  isBotGame: PropTypes.bool
 };
 
 export default DiceAmericanGame;
-

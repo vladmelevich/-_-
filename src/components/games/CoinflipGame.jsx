@@ -1,93 +1,164 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
-function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
+function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, playerRole, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        playerRole: { required: true, type: 'string' },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'CoinflipGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы CoinflipGame', validation.errors);
+    } else {
+      log('component', 'CoinflipGame инициализирован', { rounds, playerRole, isBotGame });
+    }
+  }, []);
+  
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
-  const [teacherChoice, setTeacherChoice] = useState(null); // 'heads' or 'tails'
-  const [coinResult, setCoinResult] = useState(null); // 'heads' or 'tails'
+  const [teacherChoice, setTeacherChoice] = useState(null);
+  const [coinResult, setCoinResult] = useState(null);
   const [isFlipping, setIsFlipping] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const processingRef = useRef(false);
 
-  // Преподаватель всегда выбирает
   const isTeacher = playerRole === 'teacher';
 
-  const handleChoice = (choice) => {
-    if (isFlipping || teacherChoice !== null || isBlocked) return;
-    if (!isTeacher) {
-      alert('Только преподаватель может выбирать сторону монетки!');
+  const handleChoice = (choice, forceBot = false) => {
+    // Если это бот, пропускаем проверку isTeacher
+    if (isFlipping || teacherChoice !== null || isBlocked || (!isTeacher && !forceBot) || processingRef.current) {
+      log('game', 'Попытка выбора заблокирована', { isFlipping, teacherChoice, isBlocked, isTeacher, forceBot });
       return;
     }
     
+    if (choice !== 'heads' && choice !== 'tails') {
+      logError('validation', 'Неверный выбор монетки', { choice });
+      return;
+    }
+    
+    processingRef.current = true;
+    logAction('coinChoice', { choice, playerRole });
     setTeacherChoice(choice);
     setIsFlipping(true);
     
-    // Генерируем результат монетки
+    const roundNumber = currentRound;
+    
     setTimeout(() => {
+      if (isBlocked) {
+        processingRef.current = false;
+        return;
+      }
+      
       const result = Math.random() < 0.5 ? 'heads' : 'tails';
       setCoinResult(result);
       
       const teacherWon = choice === result;
       
-      setPlayerScore(prevScore => {
-        setOpponentScore(prevOpponentScore => {
-          const newPlayerScore = teacherWon ? prevScore + 1 : prevScore;
-          const newOpponentScore = !teacherWon ? prevOpponentScore + 1 : prevOpponentScore;
-          
-          setIsFlipping(false);
-          
-          // Проверка на автопроигрыш (> 50% раундов)
-          const totalRounds = rounds;
-          const halfRounds = Math.ceil(totalRounds / 2);
-          
-          if (newPlayerScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(true);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          if (newOpponentScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(false);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          if (currentRound < rounds) {
-            setTimeout(() => {
-              setCurrentRound(prev => prev + 1);
-              setTeacherChoice(null);
-              setCoinResult(null);
-              if (onRoundFinish) onRoundFinish(currentRound, teacherWon);
-            }, 1500);
-          } else {
-            setIsBlocked(true);
-            const isWinner = newPlayerScore > newOpponentScore;
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(isWinner);
-            }, 1000);
-          }
-          
-          return newOpponentScore;
+      setIsFlipping(false);
+      
+      // Обновляем счет только один раз
+      // Если игрок - преподаватель и выиграл, или игрок - ученик и проиграл (преподаватель выиграл)
+      if (isTeacher && teacherWon) {
+        // Преподаватель выиграл
+        setPlayerScore(prev => prev + 1);
+      } else if (!isTeacher && !teacherWon) {
+        // Ученик выиграл (преподаватель проиграл)
+        setPlayerScore(prev => prev + 1);
+      } else {
+        // Преподаватель выиграл (когда игрок - ученик) или ученик выиграл (когда игрок - преподаватель)
+        setOpponentScore(prev => prev + 1);
+      }
+      
+      // Проверяем условия завершения игры и переход к следующему раунду с задержкой
+      setTimeout(() => {
+        if (isBlocked) {
+          processingRef.current = false;
+          return;
+        }
+        
+        setPlayerScore(prevPlayer => {
+          setOpponentScore(prevOpponent => {
+            const halfRounds = Math.ceil(rounds / 2);
+            
+            if (prevPlayer > halfRounds) {
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(true);
+              }, 2000);
+              return prevOpponent;
+            }
+            
+            if (prevOpponent > halfRounds) {
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(false);
+              }, 2000);
+              return prevOpponent;
+            }
+            
+            // Переход к следующему раунду
+            if (roundNumber < rounds) {
+              setTimeout(() => {
+                if (onRoundFinish) onRoundFinish(roundNumber, teacherWon);
+                setTeacherChoice(null);
+                setCoinResult(null);
+                setCurrentRound(roundNumber + 1);
+                processingRef.current = false;
+              }, 2000);
+            } else {
+              setIsBlocked(true);
+              processingRef.current = false;
+              const isWinner = prevPlayer > prevOpponent;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(isWinner);
+              }, 2000);
+            }
+            
+            return prevOpponent;
+          });
+          return prevPlayer;
         });
-        return newPlayerScore;
-      });
-    }, 800);
+      }, 1500);
+    }, 1000);
   };
 
-  // Сброс состояния при переходе к новому раунду
   useEffect(() => {
-    if (currentRound <= rounds) {
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setTeacherChoice(null);
       setCoinResult(null);
       setIsFlipping(false);
+      processingRef.current = false;
     }
-  }, [currentRound]);
-
+  }, [currentRound, rounds, isBlocked]);
+  
+  // Логика бота - бот всегда играет за противоположную роль
+  // Если игрок - ученик, бот играет за преподавателя (делает выбор)
+  // Если игрок - преподаватель, бот не нужен (только преподаватель делает выбор)
+  useEffect(() => {
+    // Бот играет за преподавателя только если игрок - ученик
+    if (isBotGame && !isTeacher && currentRound <= rounds && !isBlocked && 
+        teacherChoice === null && !isFlipping && !processingRef.current) {
+      const timer = setTimeout(() => {
+        if (!isBlocked && teacherChoice === null && !isFlipping && !processingRef.current && currentRound <= rounds) {
+          const botChoice = Math.random() < 0.5 ? 'heads' : 'tails';
+          logAction('botCoinChoice', { choice: botChoice, round: currentRound });
+          handleChoice(botChoice, true); // forceBot = true для бота
+        }
+      }, 800 + Math.random() * 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isBotGame, isTeacher, currentRound, isBlocked, teacherChoice, isFlipping]);
 
   return (
     <div className="coinflip-game">
@@ -96,7 +167,7 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
           <span>Вы: {playerScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, rounds)}/{rounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
           <span>Соперник: {opponentScore}</span>
@@ -105,14 +176,7 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
       
       <div className="coinflip-container">
         {!isTeacher && teacherChoice === null && !isFlipping && !isBlocked && (
-          <div className="game-status">
-            Ожидание выбора преподавателя...
-          </div>
-        )}
-        {isTeacher && teacherChoice === null && !isFlipping && !isBlocked && (
-          <div className="game-status">
-            Выберите сторону монетки (Преподаватель)
-          </div>
+          <div className="game-status">Ожидание выбора преподавателя...</div>
         )}
         
         <div className="coinflip-choices">
@@ -164,6 +228,11 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
                 ? (isTeacher ? 'Вы выиграли раунд!' : 'Преподаватель выиграл раунд!')
                 : (isTeacher ? 'Вы проиграли раунд!' : 'Вы выиграли раунд!')}
             </div>
+            {teacherChoice && (
+              <div className="coinflip-choice-display">
+                Преподаватель выбрал: {teacherChoice === 'heads' ? 'Орел' : 'Решка'}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -175,8 +244,8 @@ CoinflipGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
   onGameFinish: PropTypes.func.isRequired,
-  playerRole: PropTypes.string
+  playerRole: PropTypes.string,
+  isBotGame: PropTypes.bool
 };
 
 export default CoinflipGame;
-

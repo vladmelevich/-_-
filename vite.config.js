@@ -5,8 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    open: false
+    open: true, // Автоматически открывать браузер
+    host: true // Доступ с других устройств
+  },
+  // Настройка для вывода логов в терминал
+  build: {
+    minify: false,
+    sourcemap: true
   }
 });
-
-

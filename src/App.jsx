@@ -4,6 +4,7 @@ import SubjectSelector from './components/SubjectSelector.jsx';
 import CategoryPills from './components/CategoryPills.jsx';
 import GameGrid from './components/GameGrid.jsx';
 import ModePage from './components/ModePage.jsx';
+import { log } from './utils/devMode.js';
 import './styles.css';
 
 const gameModes = [
@@ -29,6 +30,11 @@ const games = [
 ];
 
 function App() {
+  // Инициализация
+  useEffect(() => {
+    log('system', 'Приложение инициализировано');
+  }, []);
+  
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedMode, setSelectedMode] = useState(null);
   const [currentPage, setCurrentPage] = useState('main'); // 'main' или 'mode'

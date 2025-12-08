@@ -1,7 +1,26 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, logAction, logState, logData, validateAndLog } from '../../utils/devMode.js';
 
-function DiceSumGame({ rounds, onRoundFinish, onGameFinish }) {
+function DiceSumGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'DiceSumGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы DiceSumGame', validation.errors);
+    } else {
+      log('component', 'DiceSumGame инициализирован', { rounds, isBotGame });
+    }
+  }, []);
+  
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
@@ -9,100 +28,119 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish }) {
   const [opponentDice, setOpponentDice] = useState([0, 0, 0]);
   const [isRolling, setIsRolling] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const processingRef = useRef(false);
 
-  const rollDice = () => {
-    return Math.floor(Math.random() * 6) + 1;
-  };
+  const rollDice = () => Math.floor(Math.random() * 6) + 1;
 
-  const handleRoll = useCallback(() => {
-    if (isRolling || isBlocked) return;
+  const startRound = () => {
+    if (isBlocked || isRolling || processingRef.current || currentRound > rounds) {
+      log('game', 'Попытка начать раунд заблокирована', { isBlocked, isRolling, currentRound, rounds });
+      return;
+    }
     
+    processingRef.current = true;
+    logAction('roundStart', { currentRound, rounds });
     setIsRolling(true);
     
-    // Бросаем кубики
+    const roundNumber = currentRound;
     const playerRolls = [rollDice(), rollDice(), rollDice()];
     const opponentRolls = [rollDice(), rollDice(), rollDice()];
+    
+    logData('diceRolled', { playerRolls, opponentRolls, currentRound: roundNumber });
     
     setPlayerDice(playerRolls);
     setOpponentDice(opponentRolls);
     
-    const playerSum = playerRolls.reduce((a, b) => a + b, 0);
-    const opponentSum = opponentRolls.reduce((a, b) => a + b, 0);
-    
     setTimeout(() => {
       setIsRolling(false);
       
-      // Обновляем счета и проверяем результаты
-      const playerWon = playerSum > opponentSum;
+      const playerSum = playerRolls.reduce((a, b) => a + b, 0);
+      const opponentSum = opponentRolls.reduce((a, b) => a + b, 0);
       
-      setPlayerScore(prevScore => {
-        setOpponentScore(prevOpponentScore => {
-          const newPlayerScore = playerWon ? prevScore + 1 : prevScore;
-          const newOpponentScore = !playerWon ? prevOpponentScore + 1 : prevOpponentScore;
-          
-          // Проверка на автопроигрыш (> 50% раундов)
-          const totalRounds = rounds;
-          const halfRounds = Math.ceil(totalRounds / 2);
-          
-          if (newPlayerScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(true);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          if (newOpponentScore > halfRounds) {
-            setIsBlocked(true);
-            setTimeout(() => {
-              if (onGameFinish) onGameFinish(false);
-            }, 1000);
-            return prevOpponentScore;
-          }
-          
-          // Переход к следующему раунду
-          setTimeout(() => {
-            setCurrentRound(prevRound => {
-              if (prevRound < rounds) {
-                const nextRound = prevRound + 1;
-                if (onRoundFinish) onRoundFinish(prevRound, playerWon);
-                return nextRound;
-              } else {
-                setIsBlocked(true);
-                const isWinner = newPlayerScore > newOpponentScore;
-                setTimeout(() => {
-                  if (onGameFinish) onGameFinish(isWinner);
-                }, 1000);
-                return prevRound;
-              }
-            });
-          }, 1200);
-          
-          return newOpponentScore;
+      logData('roundResult', { playerSum, opponentSum, currentRound: roundNumber });
+      
+      const playerWon = playerSum > opponentSum;
+      logAction('roundFinished', { playerWon, playerSum, opponentSum, round: roundNumber });
+      
+      // Обновляем счет
+      if (playerWon) {
+        setPlayerScore(prev => prev + 1);
+      } else {
+        setOpponentScore(prev => prev + 1);
+      }
+      
+      // Проверка на завершение игры и переход к следующему раунду с задержкой
+      setTimeout(() => {
+        setPlayerScore(prevPlayer => {
+          setOpponentScore(prevOpponent => {
+            const halfRounds = Math.ceil(rounds / 2);
+            
+            if (prevPlayer > halfRounds) {
+              logAction('gameWon', { reason: 'playerScore > halfRounds', playerScore: prevPlayer, halfRounds });
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(true);
+              }, 2000);
+              return prevOpponent;
+            }
+            
+            if (prevOpponent > halfRounds) {
+              logAction('gameLost', { reason: 'opponentScore > halfRounds', opponentScore: prevOpponent, halfRounds });
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(false);
+              }, 2000);
+              return prevOpponent;
+            }
+            
+            // Переход к следующему раунду
+            if (roundNumber < rounds) {
+              setTimeout(() => {
+                if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
+                setCurrentRound(roundNumber + 1);
+                processingRef.current = false;
+              }, 2000);
+            } else {
+              // Последний раунд завершен
+              setIsBlocked(true);
+              processingRef.current = false;
+              const isWinner = prevPlayer > prevOpponent;
+              setTimeout(() => {
+                if (onGameFinish) onGameFinish(isWinner);
+              }, 2000);
+            }
+            
+            return prevOpponent;
+          });
+          return prevPlayer;
         });
-        return newPlayerScore;
-      });
-    }, 800);
-  }, [isRolling, isBlocked, rounds, onRoundFinish, onGameFinish]);
-  
-  // Сброс состояния и автоматический запуск нового раунда
+      }, 1500);
+    }, 1000);
+  };
+
+  // Сброс кубиков при новом раунде
   useEffect(() => {
-    if (currentRound <= rounds && !isBlocked && !isRolling && playerDice[0] === 0) {
-      // Сбрасываем состояние
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setPlayerDice([0, 0, 0]);
       setOpponentDice([0, 0, 0]);
       setIsRolling(false);
-      
-      // Автоматически запускаем новый раунд после небольшой задержки
+      processingRef.current = false;
+    }
+  }, [currentRound, rounds, isBlocked]);
+  
+  // Автоматический запуск раунда
+  useEffect(() => {
+    if (currentRound <= rounds && !isBlocked && playerDice[0] === 0 && rounds > 0 && !isRolling && !processingRef.current && currentRound >= 1) {
       const timer = setTimeout(() => {
-        if (!isBlocked && !isRolling) {
-          handleRoll();
+        if (!isBlocked && playerDice[0] === 0 && !isRolling && !processingRef.current && currentRound <= rounds && currentRound >= 1) {
+          startRound();
         }
-      }, 600);
-      
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [currentRound, isBlocked, isRolling, rounds, handleRoll]);
+  }, [currentRound, rounds, isBlocked, playerDice, isRolling]);
 
   return (
     <div className="dice-sum-game">
@@ -111,7 +149,7 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish }) {
           <span>Вы: {playerScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, rounds)}/{rounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
           <span>Соперник: {opponentScore}</span>
@@ -149,9 +187,7 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish }) {
       </div>
       
       {isRolling && (
-        <div className="game-status">
-          Бросаем кубики...
-        </div>
+        <div className="game-status">Бросаем кубики...</div>
       )}
     </div>
   );
@@ -160,8 +196,8 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish }) {
 DiceSumGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
-  onGameFinish: PropTypes.func.isRequired
+  onGameFinish: PropTypes.func.isRequired,
+  isBotGame: PropTypes.bool
 };
 
 export default DiceSumGame;
-

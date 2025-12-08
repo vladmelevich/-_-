@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import GameLobby from './GameLobby.jsx';
 import GameResult from './GameResult.jsx';
@@ -8,6 +8,7 @@ import CoinflipGame from './games/CoinflipGame.jsx';
 import NvutiGame from './games/NvutiGame.jsx';
 import FootballGame from './games/FootballGame.jsx';
 import BlackjackGame from './games/BlackjackGame.jsx';
+import { log, logError, logAction, logState, logData, validateAndLog } from '../utils/devMode.js';
 
 const modeDescriptions = {
   'dice-sum': 'Dice на сумму - вы кидаете 3 кубика и у кого сумма кубиков больше тот и выигрывает раунд.',
@@ -19,139 +20,185 @@ const modeDescriptions = {
 };
 
 function ModePage({ modeId, modeLabel, onBack }) {
+  // Базовые состояния
+  const [playerRole, setPlayerRole] = useState(() => {
+    return localStorage.getItem('selectedRole') || 'student';
+  });
+  
   const [rounds, setRounds] = useState(1);
   const [customRounds, setCustomRounds] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [playerName, setPlayerName] = useState('');
-  const [creatorFilter, setCreatorFilter] = useState(() => {
-    // Загружаем из localStorage
-    const saved = localStorage.getItem('creatorFilter');
-    return saved || 'all';
-  });
-  const [modeFilter, setModeFilter] = useState(false);
-
-  // Сохраняем фильтр создателя в localStorage
-  useEffect(() => {
-    localStorage.setItem('creatorFilter', creatorFilter);
-  }, [creatorFilter]);
-
-  // Состояние лобби и игры
-  const [isWaiting, setIsWaiting] = useState(false);
-  const [myLobbyId, setMyLobbyId] = useState(null);
-  const [gameState, setGameState] = useState(null); // null, 'playing', 'finished'
-  const [gameResult, setGameResult] = useState(null); // null, true (win), false (lose)
-  const [isCreator, setIsCreator] = useState(false);
-  const [currentGameRounds, setCurrentGameRounds] = useState(null);
+  
+  // Состояние игры
+  const [gameState, setGameState] = useState('idle'); // 'idle', 'waiting', 'playing', 'finished'
+  const [gameRounds, setGameRounds] = useState(null);
+  const [gameResult, setGameResult] = useState(null);
   const [isBotGame, setIsBotGame] = useState(false);
-
-  // Активные сессии (синхронизация через localStorage и BroadcastChannel)
+  
+  // Сессии
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem('activeSessions');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Валидация и очистка сессий
+        if (Array.isArray(parsed)) {
+          // Фильтруем только валидные сессии с обязательными полями
+          const validSessions = parsed.filter(s => {
+            return s && 
+                   s.id && 
+                   s.mode && 
+                   s.creator && 
+                   s.creatorName && 
+                   s.rounds && 
+                   s.createdAt;
+          });
+          return validSessions;
+        }
+      }
+      return [];
     } catch (e) {
-      console.error('Ошибка загрузки сессий:', e);
+      logError('storage', 'Ошибка загрузки сессий', e);
       return [];
     }
   });
-
-  // Используем BroadcastChannel для синхронизации между вкладками
+  
+  const [mySessionId, setMySessionId] = useState(null);
+  const [creatorFilter, setCreatorFilter] = useState(() => {
+    return localStorage.getItem('creatorFilter') || 'all';
+  });
+  const [modeFilter, setModeFilter] = useState(false);
+  
+  // Ссылка для предотвращения дублирования
+  const sessionChannelRef = useRef(null);
+  
+  // Инициализация BroadcastChannel
   useEffect(() => {
-    let channel = null;
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        channel = new BroadcastChannel('sessions_channel');
-        channel.onmessage = (e) => {
-          if (e.data && e.data.type === 'sessionsUpdate' && Array.isArray(e.data.sessions)) {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        sessionChannelRef.current = new BroadcastChannel('sessions_channel');
+        sessionChannelRef.current.onmessage = (e) => {
+          if (e.data?.type === 'sessionsUpdate' && Array.isArray(e.data.sessions)) {
             setSessions(e.data.sessions);
           }
         };
+      } catch (e) {
+        logError('broadcast', 'Ошибка BroadcastChannel', e);
       }
-    } catch (e) {
-      console.error('Ошибка создания BroadcastChannel:', e);
     }
-
-    return () => {
-      if (channel) {
-        channel.close();
-      }
-    };
-  }, []);
-
-  // Синхронизация сессий с localStorage и BroadcastChannel
-  useEffect(() => {
+    
+    // Очистка старых сессий при загрузке
     try {
-      localStorage.setItem('activeSessions', JSON.stringify(sessions));
-      // Отправляем событие для обновления в других вкладках
-      window.dispatchEvent(new CustomEvent('sessionsUpdated', { detail: sessions }));
-      
-      // Отправляем через BroadcastChannel
-      if (typeof BroadcastChannel !== 'undefined') {
-        try {
-          const channel = new BroadcastChannel('sessions_channel');
-          channel.postMessage({ type: 'sessionsUpdate', sessions });
-          channel.close();
-        } catch (e) {
-          // Игнорируем ошибки BroadcastChannel
+      const saved = localStorage.getItem('activeSessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Фильтруем только валидные сессии (не старше 1 часа)
+        const now = Date.now();
+        const validSessions = Array.isArray(parsed) ? parsed.filter(s => {
+          return s && s.id && s.mode && s.createdAt && (now - s.createdAt) < 3600000;
+        }) : [];
+        if (validSessions.length !== parsed.length) {
+          localStorage.setItem('activeSessions', JSON.stringify(validSessions));
+          setSessions(validSessions);
         }
       }
     } catch (e) {
-      console.error('Ошибка сохранения сессий:', e);
+      logError('storage', 'Ошибка очистки сессий', e);
+      localStorage.removeItem('activeSessions');
+      setSessions([]);
+    }
+    
+    return () => {
+      if (sessionChannelRef.current) {
+        sessionChannelRef.current.close();
+      }
+    };
+  }, []);
+  
+  // Синхронизация сессий
+  useEffect(() => {
+    try {
+      // Валидация сессий перед сохранением
+      if (!Array.isArray(sessions)) {
+        logError('data', 'Sessions не является массивом', { sessions });
+        return;
+      }
+      
+      const sessionsData = JSON.stringify(sessions);
+      localStorage.setItem('activeSessions', sessionsData);
+      logData('sessionsSaved', { count: sessions.length, sessions });
+      
+      window.dispatchEvent(new CustomEvent('sessionsUpdated', { detail: sessions }));
+      logAction('sessionsUpdatedEvent', { count: sessions.length });
+      
+      if (sessionChannelRef.current) {
+        sessionChannelRef.current.postMessage({ type: 'sessionsUpdate', sessions });
+        logAction('broadcastChannelMessage', { type: 'sessionsUpdate' });
+      }
+    } catch (e) {
+      logError('storage', 'Ошибка сохранения сессий', e);
     }
   }, [sessions]);
-
-  // Слушаем обновления сессий из других вкладок
+  
+  // Слушаем обновления сессий
   useEffect(() => {
-    const handleSessionsUpdate = (e) => {
-      if (e && e.detail && Array.isArray(e.detail)) {
+    const handleUpdate = (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
         setSessions(e.detail);
       }
     };
     
-    const handleStorageChange = (e) => {
+    const handleStorage = (e) => {
       if (e.key === 'activeSessions' && e.newValue) {
         try {
-          const newSessions = JSON.parse(e.newValue);
-          if (Array.isArray(newSessions)) {
-            setSessions(newSessions);
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setSessions(parsed);
           }
-        } catch (err) {
-          console.error('Ошибка парсинга сессий:', err);
+        } catch (e) {
+          console.error('Ошибка парсинга:', e);
         }
       }
     };
     
-    window.addEventListener('sessionsUpdated', handleSessionsUpdate);
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Периодическая проверка localStorage (для надежности)
-    const interval = setInterval(() => {
-      try {
-        const saved = localStorage.getItem('activeSessions');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setSessions(prev => {
-              // Обновляем только если есть изменения
-              if (JSON.stringify(prev) !== JSON.stringify(parsed)) {
-                return parsed;
-              }
-              return prev;
-            });
-          }
-        }
-      } catch (e) {
-        // Игнорируем ошибки
-      }
-    }, 2000);
+    window.addEventListener('sessionsUpdated', handleUpdate);
+    window.addEventListener('storage', handleStorage);
     
     return () => {
-      window.removeEventListener('sessionsUpdated', handleSessionsUpdate);
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      window.removeEventListener('sessionsUpdated', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
-
+  
+  // Слушаем изменения роли
+  useEffect(() => {
+    const handleRoleChange = () => {
+      const newRole = localStorage.getItem('selectedRole') || 'student';
+      setPlayerRole(newRole);
+    };
+    
+    const handleStorage = (e) => {
+      if (e.key === 'selectedRole') {
+        setPlayerRole(e.newValue || 'student');
+      }
+    };
+    
+    window.addEventListener('roleChanged', handleRoleChange);
+    window.addEventListener('storage', handleStorage);
+    
+    return () => {
+      window.removeEventListener('roleChanged', handleRoleChange);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+  
+  // Сохранение фильтра
+  useEffect(() => {
+    localStorage.setItem('creatorFilter', creatorFilter);
+  }, [creatorFilter]);
+  
+  // Обработчики
   const handleRoundsChange = (value) => {
     if (value === 'custom') {
       setShowCustomInput(true);
@@ -162,7 +209,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
       setCustomRounds('');
     }
   };
-
+  
   const handleCustomRoundsChange = (value) => {
     setCustomRounds(value);
     const num = parseInt(value, 10);
@@ -172,265 +219,343 @@ function ModePage({ modeId, modeLabel, onBack }) {
       setRounds(null);
     }
   };
-
+  
   const handleCreateSession = () => {
-    if (!rounds || rounds <= 0 || rounds % 2 === 0) {
-      alert('Выберите нечетное количество раундов!');
+    logAction('createSession', { modeId, playerRole, rounds, playerName });
+    
+    const finalRounds = modeId === 'football' ? 3 : rounds;
+    
+    // Валидация данных
+    const validation = validateAndLog(
+      { rounds: finalRounds, playerName: playerName.trim() },
+      {
+        rounds: { required: true, type: 'number', min: 1, custom: (val) => val % 2 !== 0 },
+        playerName: { required: true, type: 'string', custom: (val) => val.length > 0 }
+      },
+      'handleCreateSession'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Ошибка валидации при создании сессии', validation.errors);
+      alert(validation.errors.join('\n'));
       return;
     }
     
-    if (!playerName.trim()) {
-      alert('Введите ваше имя!');
-      return;
-    }
-    
-    // Создаем лобби для поиска игроков
-    const newLobbyId = Date.now();
-    const newSession = {
-      id: newLobbyId,
-      mode: modeId,
-      creator: currentRole,
-      creatorName: playerName.trim(),
-      rounds: rounds
-    };
-    
-    setSessions(prev => [...prev, newSession]);
-    setMyLobbyId(newLobbyId);
-    setIsCreator(true);
-    setCurrentGameRounds(rounds);
-    setIsWaiting(true);
-    setIsBotGame(false);
-    // НЕ начинаем игру автоматически - ждем присоединения игрока
-  };
-
-  const handlePlayWithBot = () => {
-    if (!rounds || rounds <= 0 || rounds % 2 === 0) {
-      alert('Выберите нечетное количество раундов!');
-      return;
-    }
-    
-    // Начинаем игру с ботом сразу
-    setCurrentGameRounds(rounds);
-    setIsCreator(true);
-    setIsBotGame(true);
-    setIsWaiting(false); // Не показываем ожидание, игра начинается сразу
-    setGameState('playing');
-    
-    // Создаем лобби для ожидания реального игрока (но игра уже идет с ботом)
-    const newLobbyId = Date.now();
-    const newSession = {
-      id: newLobbyId,
-      mode: modeId,
-      creator: currentRole,
-      creatorName: playerName.trim() || (currentRole === 'student' ? 'Игрок (Ученик)' : 'Игрок (Преподаватель)'),
-      rounds: rounds
-    };
-    
-    setSessions(prev => [...prev, newSession]);
-    setMyLobbyId(newLobbyId);
-  };
-
-  const handleCancelLobby = () => {
-    if (myLobbyId) {
-      setSessions(prev => prev.filter(s => s.id !== myLobbyId));
-      setMyLobbyId(null);
-      setIsWaiting(false);
-      setIsCreator(false);
-      setGameState(null);
-      setCurrentGameRounds(null);
-    }
-  };
-
-  const handleJoinSession = (sessionId) => {
-    // Находим сессию для получения количества раундов
-    const session = sessions.find(s => s.id === sessionId);
-    if (session) {
-      // Проверка совместимости ролей
-      if (session.creator === currentRole) {
-        alert('Вы не можете присоединиться к сессии, созданной пользователем с такой же ролью!');
-        return;
-      }
+    try {
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newSession = {
+        id: sessionId,
+        mode: modeId,
+        creator: playerRole,
+        creatorName: playerName.trim(),
+        rounds: finalRounds,
+        createdAt: Date.now()
+      };
       
-      // Если режим сессии отличается от текущего, нужно перейти на страницу этого режима
-      if (session.mode !== modeId) {
-        window.sessionToJoin = { rounds: session.rounds, sessionId: sessionId, modeId: session.mode };
-        window.dispatchEvent(new CustomEvent('modeChange', { detail: { modeId: session.mode, startGame: true } }));
-        return;
-      }
+      logData('sessionCreated', newSession);
       
-      setCurrentGameRounds(session.rounds);
-      // Удаляем сессию из списка перед началом игры
-      setSessions(prev => prev.filter(s => s.id !== sessionId));
-      setIsWaiting(false);
-      setGameState('playing');
-      setIsCreator(false);
+      setSessions(prev => {
+        const updated = [...prev, newSession];
+        logState('ModePage', 'sessions', updated);
+        return updated;
+      });
       
-      // Отправляем событие для создания сессии, чтобы убрать ожидание у создателя
-      window.dispatchEvent(new CustomEvent('playerJoined', { detail: { sessionId } }));
+      setMySessionId(sessionId);
+      setGameRounds(finalRounds);
+      setGameState('waiting');
+      setIsBotGame(false);
+      
+      logAction('sessionCreated', { sessionId, modeId });
+    } catch (error) {
+      logError('session', 'Ошибка при создании сессии', error);
+      alert('Ошибка при создании сессии. Попробуйте еще раз.');
     }
   };
   
-  // Слушаем событие присоединения игрока
+  const handlePlayWithBot = () => {
+    logAction('playWithBot', { modeId, playerRole, rounds, playerName });
+    
+    const finalRounds = modeId === 'football' ? 3 : rounds;
+    
+    // Валидация данных
+    const validation = validateAndLog(
+      { rounds: finalRounds },
+      {
+        rounds: { required: true, type: 'number', min: 1, custom: (val) => val % 2 !== 0 }
+      },
+      'handlePlayWithBot'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Ошибка валидации при игре с ботом', validation.errors);
+      alert(validation.errors.join('\n'));
+      return;
+    }
+    
+    try {
+      // Игра с ботом - не создаем сессию, сразу запускаем игру
+      setGameRounds(finalRounds);
+      setIsBotGame(true);
+      setGameState('playing');
+      
+      logAction('botGameStarted', { modeId, playerRole, rounds: finalRounds });
+    } catch (error) {
+      logError('game', 'Ошибка при запуске игры с ботом', error);
+      alert('Ошибка при запуске игры. Попробуйте еще раз.');
+    }
+  };
+  
+  const handleCancelLobby = () => {
+    if (mySessionId) {
+      setSessions(prev => prev.filter(s => s.id !== mySessionId));
+      setMySessionId(null);
+      setGameState('idle');
+      setGameRounds(null);
+    }
+  };
+  
+  const handleJoinSession = (sessionId) => {
+    logAction('joinSession', { sessionId, playerRole });
+    
+    if (!sessionId || typeof sessionId !== 'string') {
+      logError('validation', 'Неверный sessionId', { sessionId });
+      return;
+    }
+    
+    const session = sessions.find(s => s.id === sessionId);
+    
+    if (!session) {
+      logError('session', 'Сессия не найдена', { sessionId, availableSessions: sessions.map(s => s.id) });
+      alert('Сессия не найдена');
+      return;
+    }
+    
+    // Валидация сессии
+    const sessionValidation = validateAndLog(
+      session,
+      {
+        id: { required: true, type: 'string' },
+        mode: { required: true, type: 'string' },
+        creator: { required: true, type: 'string' },
+        rounds: { required: true, type: 'number', min: 1 }
+      },
+      'handleJoinSession'
+    );
+    
+    if (!sessionValidation.valid) {
+      logError('validation', 'Неверные данные сессии', sessionValidation.errors);
+      alert('Ошибка: неверные данные сессии');
+      return;
+    }
+    
+    if (session.creator === playerRole) {
+      logError('session', 'Попытка присоединиться к сессии с такой же ролью', { session, playerRole });
+      alert('Вы не можете присоединиться к сессии с такой же ролью!');
+      return;
+    }
+    
+    try {
+      // Сохраняем информацию о сессии перед удалением (для создания игры)
+      const sessionInfo = {
+        sessionId,
+        rounds: session.rounds,
+        mode: session.mode,
+        creatorName: session.creatorName || 'Игрок',
+        creator: session.creator
+      };
+      
+      // Удаляем сессию из списка и сохраняем в localStorage
+      setSessions(prev => {
+        const updated = prev.filter(s => s.id !== sessionId);
+        logState('ModePage', 'sessions', updated);
+        // Сохраняем сразу в localStorage для синхронизации
+        try {
+          localStorage.setItem('activeSessions', JSON.stringify(updated));
+          // Отправляем через BroadcastChannel
+          if (sessionChannelRef.current) {
+            sessionChannelRef.current.postMessage({ type: 'sessionsUpdate', sessions: updated });
+          }
+        } catch (e) {
+          logError('storage', 'Ошибка сохранения при присоединении', e);
+        }
+        return updated;
+      });
+      
+      // Уведомляем создателя через несколько каналов
+      const joinEvent = new CustomEvent('playerJoined', { 
+        detail: { 
+          sessionId,
+          rounds: session.rounds,
+          mode: session.mode,
+          creatorName: session.creatorName
+        } 
+      });
+      window.dispatchEvent(joinEvent);
+      logAction('playerJoinedEvent', { sessionId, rounds: session.rounds, creatorName: session.creatorName });
+      
+      // Также сохраняем в localStorage для синхронизации между вкладками
+      try {
+        localStorage.setItem('playerJoinedSession', JSON.stringify({
+          sessionId,
+          rounds: session.rounds,
+          mode: session.mode,
+          timestamp: Date.now()
+        }));
+        // Удаляем через 5 секунд
+        setTimeout(() => {
+          localStorage.removeItem('playerJoinedSession');
+        }, 5000);
+      } catch (e) {
+        logError('storage', 'Ошибка сохранения события присоединения', e);
+      }
+      
+      // Начинаем игру у присоединившегося игрока
+      setGameRounds(session.rounds);
+      setIsBotGame(false);
+      setGameState('playing');
+      
+      logAction('gameStarted', { sessionId, mode: session.mode, rounds: session.rounds });
+    } catch (error) {
+      logError('session', 'Ошибка при присоединении к сессии', error);
+      alert('Ошибка при присоединении к сессии. Попробуйте еще раз.');
+    }
+  };
+  
+  // Слушаем присоединение игрока
   useEffect(() => {
     const handlePlayerJoined = (e) => {
-      if (e.detail && e.detail.sessionId === myLobbyId && isWaiting && isCreator) {
-        setIsWaiting(false);
+      const detail = e.detail;
+      if (detail?.sessionId === mySessionId && gameState === 'waiting') {
+        logAction('creatorReceivedJoin', { sessionId: detail.sessionId, rounds: detail.rounds });
+        setGameRounds(detail.rounds || gameRounds);
         setGameState('playing');
+        setIsBotGame(false);
+      }
+    };
+    
+    // Также проверяем localStorage на наличие события присоединения
+    const checkLocalStorageJoin = () => {
+      try {
+        const saved = localStorage.getItem('playerJoinedSession');
+        if (saved) {
+          const joinData = JSON.parse(saved);
+          // Проверяем что событие свежее (не старше 5 секунд)
+          if (joinData.sessionId === mySessionId && 
+              gameState === 'waiting' && 
+              Date.now() - joinData.timestamp < 5000) {
+            logAction('creatorReceivedJoinFromStorage', { sessionId: joinData.sessionId, rounds: joinData.rounds });
+            setGameRounds(joinData.rounds || gameRounds);
+            setGameState('playing');
+            setIsBotGame(false);
+            localStorage.removeItem('playerJoinedSession');
+          }
+        }
+      } catch (e) {
+        // Игнорируем ошибки
       }
     };
     
     window.addEventListener('playerJoined', handlePlayerJoined);
-    return () => window.removeEventListener('playerJoined', handlePlayerJoined);
-  }, [myLobbyId, isWaiting, isCreator]);
-
-  // Проверяем, нужно ли сразу начать игру (при подключении к сессии другого режима)
-  useEffect(() => {
-    const handleStartGame = () => {
-      if (window.sessionToJoin && window.sessionToJoin.modeId === modeId) {
-        const { rounds: sessionRounds, sessionId } = window.sessionToJoin;
-        setCurrentGameRounds(sessionRounds);
-        setIsWaiting(false);
-        setGameState('playing');
-        setIsCreator(false);
-        // Удаляем сессию из списка
-        setSessions(prev => prev.filter(s => s.id !== sessionId));
-        delete window.sessionToJoin;
-      }
+    
+    // Проверяем сразу и периодически
+    checkLocalStorageJoin();
+    const interval = setInterval(checkLocalStorageJoin, 500);
+    
+    return () => {
+      window.removeEventListener('playerJoined', handlePlayerJoined);
+      clearInterval(interval);
     };
+  }, [mySessionId, gameState, gameRounds]);
+  
+  const handleGameFinish = (isWinner) => {
+    logAction('gameFinished', { isWinner, modeId, gameRounds, mySessionId });
     
-    window.addEventListener('startGame', handleStartGame);
-    
-    // Также проверяем сразу при монтировании, если есть сохраненная сессия
-    if (window.sessionToJoin && window.sessionToJoin.modeId === modeId) {
-      setTimeout(handleStartGame, 100);
+    // Валидация результата
+    if (typeof isWinner !== 'boolean') {
+      logError('validation', 'Неверный тип результата игры', { isWinner });
+      return;
     }
     
-    return () => {
-      window.removeEventListener('startGame', handleStartGame);
+    setGameState('finished');
+    setGameResult(isWinner);
+    
+    if (mySessionId) {
+      setSessions(prev => {
+        const updated = prev.filter(s => s.id !== mySessionId);
+        logState('ModePage', 'sessions', updated);
+        return updated;
+      });
+      setMySessionId(null);
+    }
+  };
+  
+  const handleRoundFinish = (round, won) => {
+    // Логика завершения раунда (можно расширить)
+  };
+  
+  const handleCloseResult = () => {
+    setGameResult(null);
+    setGameState('idle');
+    setGameRounds(null);
+  };
+  
+  // Рендер игры
+  const renderGame = () => {
+    if (gameState !== 'playing' || !gameRounds || gameRounds <= 0) {
+      log('game', 'Игра не может быть запущена', { gameState, gameRounds });
+      return null;
+    }
+    
+    // Валидация перед рендером
+    if (!modeId || !playerRole) {
+      logError('game', 'Отсутствуют обязательные параметры', { modeId, playerRole });
+      return <div>Ошибка: отсутствуют параметры игры</div>;
+    }
+    
+    const gameProps = {
+      rounds: gameRounds,
+      onRoundFinish: handleRoundFinish,
+      onGameFinish: handleGameFinish,
+      playerRole: playerRole,
+      isBotGame: isBotGame
     };
-  }, [modeId]);
-
-  // Очистка при уходе со страницы
-  useEffect(() => {
-    return () => {
-      if (myLobbyId) {
-        // Здесь можно отправить запрос на удаление лобби с сервера
+    
+    try {
+      switch (modeId) {
+        case 'dice-sum':
+          return <DiceSumGame {...gameProps} />;
+        case 'dice-american':
+          return <DiceAmericanGame {...gameProps} />;
+        case 'coinflip':
+          return <CoinflipGame {...gameProps} />;
+        case 'nvuti':
+          return <NvutiGame {...gameProps} />;
+        case 'football':
+          return <FootballGame {...gameProps} />;
+        case 'blackjack':
+          return <BlackjackGame {...gameProps} />;
+        default:
+          logError('game', 'Неизвестный режим игры', { modeId });
+          return <div>Режим не найден: {modeId}</div>;
       }
-    };
-  }, [myLobbyId]);
-
+    } catch (error) {
+      logError('game', 'Ошибка при рендере игры', error);
+      return <div>Ошибка при загрузке игры. Попробуйте перезагрузить страницу.</div>;
+    }
+  };
+  
   // Фильтрация сессий
   const filteredSessions = sessions.filter((session) => {
-    // Фильтр по режиму
     if (modeFilter && session.mode !== modeId) return false;
-    // Фильтр по создателю
     if (creatorFilter !== 'all' && session.creator !== creatorFilter) return false;
     return true;
   });
-
-  const [currentRole, setCurrentRole] = useState(() => {
-    return localStorage.getItem('selectedRole') || 'student';
-  });
-
-  // Слушаем изменения роли в localStorage
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'selectedRole') {
-        setCurrentRole(e.newValue || 'student');
-      }
-    };
-
-    // Слушаем изменения в localStorage (для других вкладок)
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Кастомное событие для изменений в том же окне
-    const handleRoleChange = () => {
-      const newRole = localStorage.getItem('selectedRole') || 'student';
-      setCurrentRole(newRole);
-    };
-    
-    window.addEventListener('roleChanged', handleRoleChange);
-    
-    // Также проверяем изменения через интервал (fallback)
-    const interval = setInterval(() => {
-      const newRole = localStorage.getItem('selectedRole') || 'student';
-      if (newRole !== currentRole) {
-        setCurrentRole(newRole);
-      }
-    }, 200);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('roleChanged', handleRoleChange);
-      clearInterval(interval);
-    };
-  }, [currentRole]);
-
-  // Симуляция начала игры (когда соперник присоединяется)
-  const handleGameStart = () => {
-    if (isWaiting && isCreator) {
-      setIsWaiting(false);
-      setGameState('playing');
-    }
-  };
-
-  // Обработка завершения игры
-  const handleGameFinish = (isWinner) => {
-    setGameState('finished');
-    setGameResult(isWinner);
-    // Удаляем лобби из списка
-    if (myLobbyId) {
-      setSessions(sessions.filter(s => s.id !== myLobbyId));
-      setMyLobbyId(null);
-    }
-  };
-
-  // Обработка завершения раунда
-  const handleRoundFinish = (round, won) => {
-    // Можно добавить логику для отображения результатов раунда
-    console.log(`Раунд ${round} завершен. Вы ${won ? 'выиграли' : 'проиграли'}`);
-  };
-
-  // Рендер игрового компонента в зависимости от режима
-  const renderGame = () => {
-    if (!gameState || gameState !== 'playing' || !currentGameRounds) return null;
-
-    const gameProps = {
-      rounds: currentGameRounds,
-      onRoundFinish: handleRoundFinish,
-      onGameFinish: handleGameFinish,
-      playerRole: currentRole
-    };
-
-    switch (modeId) {
-      case 'dice-sum':
-        return <DiceSumGame {...gameProps} />;
-      case 'dice-american':
-        return <DiceAmericanGame {...gameProps} />;
-      case 'coinflip':
-        return <CoinflipGame {...gameProps} />;
-      case 'nvuti':
-        return <NvutiGame {...gameProps} />;
-      case 'football':
-        return <FootballGame {...gameProps} />;
-      case 'blackjack':
-        return <BlackjackGame {...gameProps} />;
-      default:
-        return <div>Режим не найден</div>;
-    }
-  };
-
-  // Закрытие результата игры
-  const handleCloseResult = () => {
-    setGameResult(null);
-    setGameState(null);
-    setIsCreator(false);
-  };
-
+  
   return (
     <div className="mode-page">
-      {isWaiting && <GameLobby onCancel={handleCancelLobby} isBotGame={isBotGame} />}
+      {gameState === 'waiting' && <GameLobby onCancel={handleCancelLobby} isBotGame={isBotGame} />}
       {gameResult !== null && <GameResult isWinner={gameResult} onClose={handleCloseResult} />}
+      
       <div className="mode-page__header">
         <button className="mode-page__back-button" type="button" onClick={onBack}>
           ← Назад
@@ -438,16 +563,15 @@ function ModePage({ modeId, modeLabel, onBack }) {
         <h1 className="mode-page__title">{modeLabel}</h1>
         <div></div>
       </div>
-      <div className={`mode-page__content ${isWaiting ? 'mode-page__content--dimmed' : ''}`}>
-        {/* Левая панель - описание режима */}
+      
+      <div className={`mode-page__content ${gameState === 'waiting' ? 'mode-page__content--dimmed' : ''}`}>
         <div className="mode-page__sidebar">
           <div className="mode-page__description">
             <h2>{modeLabel}</h2>
             <p>{modeDescriptions[modeId] || 'Описание режима'}</p>
           </div>
         </div>
-
-        {/* Центральная часть - игровое поле */}
+        
         <div className="mode-page__game-area">
           <div className="mode-page__game-field">
             {gameState === 'playing' ? (
@@ -461,8 +585,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
               </div>
             )}
           </div>
-
-          {/* Выбор количества раундов */}
+          
           {modeId !== 'football' ? (
             <div className="mode-page__rounds-selection">
               <label className="rounds-label">Количество раундов:</label>
@@ -519,7 +642,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button"
                   type="button"
                   onClick={handleCreateSession}
-                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0}
+                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
                   Создать сессию
                 </button>
@@ -527,7 +650,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button create-session-button--bot"
                   type="button"
                   onClick={handlePlayWithBot}
-                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0}
+                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
                   Играть с ботом
                 </button>
@@ -538,43 +661,38 @@ function ModePage({ modeId, modeLabel, onBack }) {
               <div className="football-rounds-info">
                 <p>Football всегда играется в 3 раунда</p>
               </div>
-              <button
-                className="create-session-button"
-                type="button"
-                onClick={() => {
-                  // Для football всегда 3 раунда
-                  setRounds(3);
-                  const newLobbyId = Date.now();
-                  const newSession = {
-                    id: newLobbyId,
-                    mode: modeId,
-                    creator: currentRole,
-                    creatorName: currentRole === 'student' ? 'Вы (Ученик)' : 'Вы (Преподаватель)',
-                    rounds: 3
-                  };
-                  
-                  setSessions([...sessions, newSession]);
-                  setMyLobbyId(newLobbyId);
-                  setIsCreator(true);
-                  setCurrentGameRounds(3);
-                  setIsWaiting(true);
-                  
-                  // Симуляция присоединения соперника через 3 секунды (для демо)
-                  setTimeout(() => {
-                    setIsWaiting(false);
-                    setGameState('playing');
-                    // Удаляем лобби из списка при начале игры
-                    setSessions(prev => prev.filter(s => s.id !== newLobbyId));
-                  }, 3000);
-                }}
-              >
-                Создать сессию
-              </button>
+              <div className="player-name-input">
+                <label className="player-name-label">Ваше имя:</label>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="Введите ваше имя"
+                  className="player-name-input__field"
+                />
+              </div>
+              <div className="session-buttons">
+                <button
+                  className="create-session-button"
+                  type="button"
+                  onClick={handleCreateSession}
+                  disabled={gameState === 'playing' || gameState === 'waiting'}
+                >
+                  Создать сессию
+                </button>
+                <button
+                  className="create-session-button create-session-button--bot"
+                  type="button"
+                  onClick={handlePlayWithBot}
+                  disabled={gameState === 'playing' || gameState === 'waiting'}
+                >
+                  Играть с ботом
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        {/* Правая панель - активные сессии */}
+        
         <div className="mode-page__sessions">
           <div className="sessions-header">
             <h3>Активные сессии</h3>
@@ -602,7 +720,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
               <div className="no-sessions">Нет активных сессий</div>
             ) : (
               filteredSessions.map((session) => {
-                const canJoin = currentRole !== session.creator;
+                const canJoin = playerRole !== session.creator;
                 return (
                   <div key={session.id} className="session-card">
                     <div className="session-card__mode">{session.mode}</div>
@@ -616,7 +734,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                     <button
                       className="session-card__join-button"
                       type="button"
-                      disabled={!canJoin}
+                      disabled={!canJoin || gameState === 'playing' || gameState === 'waiting'}
                       onClick={() => canJoin && handleJoinSession(session.id)}
                     >
                       {canJoin ? 'Присоединиться' : 'Недоступно'}
@@ -639,4 +757,3 @@ ModePage.propTypes = {
 };
 
 export default ModePage;
-

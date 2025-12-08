@@ -1,7 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, validateAndLog } from '../../utils/devMode.js';
 
-function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
+function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'BlackjackGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы BlackjackGame', validation.errors);
+    } else {
+      log('component', 'BlackjackGame инициализирован', { rounds, isBotGame });
+    }
+  }, []);
+  
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
@@ -14,8 +33,8 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
   const [isWaiting, setIsWaiting] = useState(false);
   const [roundTied, setRoundTied] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const processingRef = useRef(false);
 
-  // Создание колоды из 52 карт
   const createDeck = () => {
     const suits = ['♠', '♥', '♦', '♣'];
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -27,7 +46,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
       });
     });
     
-    // Перемешиваем колоду
     for (let i = newDeck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
@@ -36,7 +54,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
     return newDeck;
   };
 
-  // Подсчет очков с учетом туза
   const calculateTotal = (cards) => {
     let total = 0;
     let aces = 0;
@@ -51,7 +68,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
       }
     });
     
-    // Обработка тузов
     for (let i = 0; i < aces; i++) {
       if (total + 11 <= 21) {
         total += 11;
@@ -64,32 +80,37 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
   };
 
   const startRound = () => {
-    const newDeck = createDeck();
-    setDeck(newDeck);
+    if (processingRef.current || isBlocked || currentRound > rounds) return;
     
-    // Раздаем по 2 карты
+    processingRef.current = true;
+    const newDeck = createDeck();
     const playerHand = [newDeck[0], newDeck[2]];
     const opponentHand = [newDeck[1], newDeck[3]];
     
+    setDeck(newDeck.slice(4));
     setPlayerCards(playerHand);
     setOpponentCards(opponentHand);
-    setDeck(newDeck.slice(4));
-    
     setPlayerTotal(calculateTotal(playerHand));
     setOpponentTotal(calculateTotal(opponentHand));
     setIsPlayerTurn(true);
     setRoundTied(false);
+    setIsWaiting(false);
+    processingRef.current = false;
   };
 
   useEffect(() => {
-    startRound();
-    setIsPlayerTurn(true);
-    setIsWaiting(false);
-    setRoundTied(false);
-  }, [currentRound]);
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
+      try {
+        startRound();
+      } catch (error) {
+        logError('blackjack', 'Ошибка при старте раунда', error);
+        processingRef.current = false;
+      }
+    }
+  }, [currentRound, rounds, isBlocked]);
 
   const handleHit = () => {
-    if (!isPlayerTurn || isWaiting || playerTotal >= 21 || isBlocked) return;
+    if (!isPlayerTurn || isWaiting || playerTotal >= 21 || isBlocked || deck.length === 0) return;
     
     const newCard = deck[0];
     const newPlayerCards = [...playerCards, newCard];
@@ -100,13 +121,9 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
     setPlayerTotal(newTotal);
     
     if (newTotal > 21) {
-      // Перебор
       setIsPlayerTurn(false);
       setIsWaiting(true);
-      
-      setTimeout(() => {
-        finishRound(false);
-      }, 600);
+      setTimeout(() => finishRound(false), 600);
     }
   };
 
@@ -116,122 +133,138 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
     setIsPlayerTurn(false);
     setIsWaiting(true);
     
-    // Соперник берет карты
     setTimeout(() => {
       let newOpponentCards = [...opponentCards];
       let newOpponentTotal = opponentTotal;
+      let currentDeck = [...deck];
       
-      while (newOpponentTotal < 17 && newOpponentTotal < playerTotal) {
-        const newCard = deck[0];
+      while (newOpponentTotal < 17 && newOpponentTotal < playerTotal && currentDeck.length > 0) {
+        const newCard = currentDeck[0];
         newOpponentCards = [...newOpponentCards, newCard];
-        setDeck(deck.slice(1));
+        currentDeck = currentDeck.slice(1);
         newOpponentTotal = calculateTotal(newOpponentCards);
       }
       
+      setDeck(currentDeck);
       setOpponentCards(newOpponentCards);
       setOpponentTotal(newOpponentTotal);
       
-      setTimeout(() => {
-        finishRound();
-      }, 600);
+      setTimeout(() => finishRound(), 600);
     }, 600);
   };
 
   const finishRound = (playerBusted = false) => {
+    if (processingRef.current || isBlocked) return;
+    
+    processingRef.current = true;
     setIsWaiting(false);
     
-    // Используем функциональные обновления для получения актуальных значений
-    setPlayerTotal(currentPlayerTotal => {
-      setOpponentTotal(currentOpponentTotal => {
-        let playerWon = false;
-        let tied = false;
-        
-        // Если игрок перебрал - проигрыш
-        if (playerBusted || currentPlayerTotal > 21) {
-          playerWon = false;
-        } 
-        // Если соперник перебрал - выигрыш
-        else if (currentOpponentTotal > 21) {
-          playerWon = true;
-        } 
-        // Если оба не перебрали, сравниваем очки (больше = лучше, но <= 21)
-        else if (currentPlayerTotal <= 21 && currentOpponentTotal <= 21) {
-          if (currentPlayerTotal > currentOpponentTotal) {
-            playerWon = true;
-          } else if (currentPlayerTotal < currentOpponentTotal) {
+    const roundNumber = currentRound;
+    
+    // Получаем актуальные значения с задержкой для отображения результата
+    setTimeout(() => {
+      if (isBlocked) {
+        processingRef.current = false;
+        return;
+      }
+      
+      // Используем функциональные обновления для получения актуальных значений
+      setPlayerTotal(currentPlayerTotal => {
+        setOpponentTotal(currentOpponentTotal => {
+          let playerWon = false;
+          let tied = false;
+          
+          if (playerBusted || currentPlayerTotal > 21) {
             playerWon = false;
-          } else {
-            // Ничья
-            tied = true;
+          } else if (currentOpponentTotal > 21) {
+            playerWon = true;
+          } else if (currentPlayerTotal <= 21 && currentOpponentTotal <= 21) {
+            if (currentPlayerTotal > currentOpponentTotal) {
+              playerWon = true;
+            } else if (currentPlayerTotal < currentOpponentTotal) {
+              playerWon = false;
+            } else {
+              tied = true;
+            }
+          }
+          
+          if (tied) {
             setRoundTied(true);
-            // Раунд увеличивается на 1, очко никому не идет
             setTimeout(() => {
-              setCurrentRound(prev => {
-                if (prev < rounds + 1) {
-                  return prev + 1;
-                }
-                return prev;
-              });
-            }, 1000);
+              setRoundTied(false);
+              if (roundNumber < rounds) {
+                setCurrentRound(roundNumber + 1);
+                processingRef.current = false;
+              } else {
+                processingRef.current = false;
+              }
+            }, 2000);
             return currentOpponentTotal;
           }
-        }
-        
-        // Обновляем счета
-        setPlayerScore(prevScore => {
-          setOpponentScore(prevOpponentScore => {
-            const newPlayerScore = playerWon ? prevScore + 1 : prevScore;
-            const newOpponentScore = !playerWon && !tied ? prevOpponentScore + 1 : prevOpponentScore;
-            
-            // Проверка на автопроигрыш (> 50% раундов)
-            const totalRounds = rounds;
-            const halfRounds = Math.ceil(totalRounds / 2);
-            
-            if (newPlayerScore > halfRounds && !tied) {
-              setIsBlocked(true);
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(true);
-              }, 1000);
-              return prevOpponentScore;
+          
+          // Обновляем счет только один раз
+          if (playerWon) {
+            setPlayerScore(prev => prev + 1);
+          } else {
+            setOpponentScore(prev => prev + 1);
+          }
+          
+          // Проверяем условия завершения игры с задержкой, используя функциональные обновления
+          setTimeout(() => {
+            if (isBlocked) {
+              processingRef.current = false;
+              return;
             }
             
-            if (newOpponentScore > halfRounds && !tied) {
-              setIsBlocked(true);
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(false);
-              }, 1000);
-              return prevOpponentScore;
-            }
-            
-            // Автоматический переход к следующему раунду
-            setTimeout(() => {
-              setCurrentRound(prevRound => {
-                if (prevRound < rounds && !tied) {
-                  const nextRound = prevRound + 1;
-                  if (onRoundFinish) {
-                    onRoundFinish(prevRound, playerWon);
-                  }
-                  return nextRound;
-                } else if (!tied) {
+            setPlayerScore(prevPlayer => {
+              setOpponentScore(prevOpponent => {
+                const halfRounds = Math.ceil(rounds / 2);
+                
+                if (prevPlayer > halfRounds) {
                   setIsBlocked(true);
-                  const isWinner = newPlayerScore > newOpponentScore;
+                  processingRef.current = false;
+                  setTimeout(() => {
+                    if (onGameFinish) onGameFinish(true);
+                  }, 2000);
+                  return prevOpponent;
+                }
+                
+                if (prevOpponent > halfRounds) {
+                  setIsBlocked(true);
+                  processingRef.current = false;
+                  setTimeout(() => {
+                    if (onGameFinish) onGameFinish(false);
+                  }, 2000);
+                  return prevOpponent;
+                }
+                
+                // Переход к следующему раунду с задержкой
+                if (roundNumber < rounds) {
+                  setTimeout(() => {
+                    if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
+                    setCurrentRound(roundNumber + 1);
+                    processingRef.current = false;
+                  }, 2000);
+                } else {
+                  setIsBlocked(true);
+                  processingRef.current = false;
+                  const isWinner = prevPlayer > prevOpponent;
                   setTimeout(() => {
                     if (onGameFinish) onGameFinish(isWinner);
-                  }, 1000);
+                  }, 2000);
                 }
-                return prevRound;
+                
+                return prevOpponent;
               });
-            }, 1500);
-            
-            return newOpponentScore;
-          });
-          return newPlayerScore;
+              return prevPlayer;
+            });
+          }, 1500);
+          
+          return currentOpponentTotal;
         });
-        
-        return currentOpponentTotal;
+        return currentPlayerTotal;
       });
-      return currentPlayerTotal;
-    });
+    }, 1000);
   };
 
   return (
@@ -241,7 +274,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
           <span>Вы: {playerScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, rounds)}/{rounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
           <span>Соперник: {opponentScore}</span>
@@ -249,9 +282,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
       </div>
       
       {roundTied && (
-        <div className="blackjack-tied">
-          Ничья! Раунд увеличивается на 1
-        </div>
+        <div className="blackjack-tied">Ничья! Раунд увеличивается на 1</div>
       )}
       
       <div className="blackjack-container">
@@ -295,7 +326,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
           <button 
             className="blackjack-button" 
             onClick={handleHit}
-            disabled={playerTotal >= 21 || isBlocked}
+            disabled={playerTotal >= 21 || isBlocked || deck.length === 0}
           >
             Взять карту
           </button>
@@ -309,17 +340,8 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
         </div>
       )}
       
-      
-      {isBlocked && (
-        <div className="blackjack-waiting">
-          Игра завершена
-        </div>
-      )}
-      
       {isWaiting && (
-        <div className="blackjack-waiting">
-          Ожидание хода соперника...
-        </div>
+        <div className="blackjack-waiting">Ожидание хода соперника...</div>
       )}
     </div>
   );
@@ -328,8 +350,8 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish }) {
 BlackjackGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
-  onGameFinish: PropTypes.func.isRequired
+  onGameFinish: PropTypes.func.isRequired,
+  isBotGame: PropTypes.bool
 };
 
 export default BlackjackGame;
-

@@ -1,8 +1,27 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
-function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
-  // Football всегда имеет 3 раунда
+function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame }) {
+  // Валидация пропсов
+  useEffect(() => {
+    const validation = validateAndLog(
+      { rounds, playerRole, isBotGame },
+      {
+        rounds: { required: true, type: 'number', min: 1 },
+        playerRole: { required: true, type: 'string' },
+        isBotGame: { required: false, type: 'boolean' }
+      },
+      'FootballGame props'
+    );
+    
+    if (!validation.valid) {
+      logError('validation', 'Неверные пропсы FootballGame', validation.errors);
+    } else {
+      log('component', 'FootballGame инициализирован', { rounds, playerRole, isBotGame });
+    }
+  }, []);
+  
   const totalRounds = 3;
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScore, setPlayerScore] = useState(0);
@@ -14,13 +33,12 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
   const [roundResult, setRoundResult] = useState(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [bothChosen, setBothChosen] = useState(false);
-  
-  // Преподаватель всегда защита, ученик всегда атака
-  const isTeacher = playerRole === 'teacher';
-  const isAttacker = !isTeacher; // Ученик атакует
-  const isDefender = isTeacher; // Преподаватель защищается
+  const processingRef = useRef(false);
 
-  // 5 позиций: углы (1, 2, 3, 4) и центр сверху (5)
+  const isTeacher = playerRole === 'teacher';
+  const isAttacker = !isTeacher;
+  const isDefender = isTeacher;
+
   const positions = [
     { id: 1, label: 'Левый верхний угол' },
     { id: 2, label: 'Правый верхний угол' },
@@ -30,116 +48,151 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
   ];
 
   const handleAttack = (positionId) => {
-    // Только атакующий (ученик) может выбирать атаку
-    if (!isAttacker || !isPlayerTurn || isWaiting || isBlocked || playerAttack !== null) return;
+    if (!isAttacker || !isPlayerTurn || isWaiting || isBlocked || playerAttack !== null || processingRef.current) {
+      log('game', 'Попытка атаки заблокирована', { isAttacker, isPlayerTurn, isWaiting, isBlocked, playerAttack });
+      return;
+    }
     
+    if (!positions.find(p => p.id === positionId)) {
+      logError('validation', 'Неверная позиция атаки', { positionId });
+      return;
+    }
+    
+    logAction('footballAttack', { positionId, currentRound });
     setPlayerAttack(positionId);
     setIsPlayerTurn(false);
-    
-    // Проверяем, выбрал ли защитник свою позицию
     checkRoundResult();
   };
 
   const handleDefense = (positionId) => {
-    // Только защитник (преподаватель) может выбирать защиту
-    if (!isDefender || !isPlayerTurn || isWaiting || isBlocked || opponentDefense !== null) return;
+    if (!isDefender || !isPlayerTurn || isWaiting || isBlocked || opponentDefense !== null || processingRef.current) {
+      log('game', 'Попытка защиты заблокирована', { isDefender, isPlayerTurn, isWaiting, isBlocked, opponentDefense });
+      return;
+    }
     
+    if (!positions.find(p => p.id === positionId)) {
+      logError('validation', 'Неверная позиция защиты', { positionId });
+      return;
+    }
+    
+    logAction('footballDefense', { positionId, currentRound });
     setOpponentDefense(positionId);
     setIsPlayerTurn(false);
-    
-    // Проверяем, выбрал ли атакующий свою позицию
     checkRoundResult();
   };
 
-  const checkRoundResult = useCallback(() => {
-    // Если оба выбрали - показываем результат
-    if (playerAttack !== null && opponentDefense !== null && !bothChosen && !isBlocked) {
+  const checkRoundResult = () => {
+    if (playerAttack !== null && opponentDefense !== null && !bothChosen && !isBlocked && !processingRef.current) {
+      processingRef.current = true;
       setBothChosen(true);
       setIsWaiting(true);
       
+      const roundNumber = currentRound;
       const attackPos = playerAttack;
       const defensePos = opponentDefense;
       
-      // Небольшая задержка перед показом результата
       setTimeout(() => {
         const blocked = attackPos === defensePos;
         
-        // Если заблокировано - защитник автоматически побеждает весь матч
         if (blocked) {
+          // Если блок, то защитник (преподаватель) побеждает, атакующий (ученик) проигрывает
           setRoundResult('blocked');
+          // Если игрок - атакующий (ученик), он проиграл
+          // Если игрок - защитник (преподаватель), он победил
+          const playerWon = isDefender; // Защитник побеждает при блоке
           setIsBlocked(true);
+          processingRef.current = false;
           setTimeout(() => {
-            // Игрок - атакующий (ученик), соперник - защитник (преподаватель)
-            if (onGameFinish) onGameFinish(false); // Атакующий проиграл
-          }, 1500);
+            if (onGameFinish) onGameFinish(playerWon);
+          }, 2000);
         } else {
-          // Если не заблокировано - атакующий получает очко
+          // Если не заблокирован, то атакующий (ученик) побеждает
+          const attackerWon = true;
           setPlayerScore(prev => prev + 1);
           setRoundResult('scored');
           setIsWaiting(false);
           
-          // Автоматический переход к следующему раунду
           setCurrentRound(prevRound => {
-            if (prevRound < totalRounds) {
+            if (prevRound === roundNumber && prevRound < totalRounds) {
               const nextRound = prevRound + 1;
               setTimeout(() => {
-                if (onRoundFinish) {
-                  onRoundFinish(prevRound, true);
-                }
-                setCurrentRound(nextRound);
+                if (onRoundFinish) onRoundFinish(prevRound, attackerWon);
+                processingRef.current = false;
+              }, 2000);
+              return nextRound;
+            } else if (prevRound === roundNumber && prevRound >= totalRounds) {
+              setIsBlocked(true);
+              processingRef.current = false;
+              setTimeout(() => {
+                setPlayerScore(prevPlayer => {
+                  // Если игрок - атакующий (ученик), он побеждает если забил хотя бы один гол
+                  // Если игрок - защитник (преподаватель), он проигрывает если соперник забил хотя бы один гол
+                  const finalPlayerWon = isAttacker ? prevPlayer > 0 : prevPlayer === 0;
+                  if (onGameFinish) onGameFinish(finalPlayerWon);
+                  return prevPlayer;
+                });
               }, 2000);
               return prevRound;
-            } else {
-              // Игра завершена - проверяем победителя
-              setIsBlocked(true);
-              setTimeout(() => {
-                setPlayerScore(prevPlayerScore => {
-                  setOpponentScore(prevOpponentScore => {
-                    // Атакующий победил, если забил больше голов
-                    const attackerWon = prevPlayerScore > prevOpponentScore;
-                    if (onGameFinish) onGameFinish(attackerWon);
-                    return prevOpponentScore;
-                  });
-                  return prevPlayerScore;
-                });
-              }, 1500);
-              return prevRound;
             }
+            processingRef.current = false;
+            return prevRound;
           });
         }
       }, 1000);
     }
-  }, [playerAttack, opponentDefense, bothChosen, isBlocked, totalRounds, onRoundFinish, onGameFinish]);
+  };
 
-  // Сброс состояния при переходе к новому раунду
   useEffect(() => {
-    if (currentRound <= totalRounds && !isBlocked) {
+    if (playerAttack !== null && opponentDefense !== null && !bothChosen && !isBlocked && !processingRef.current) {
+      checkRoundResult();
+    }
+  }, [playerAttack, opponentDefense, bothChosen, isBlocked]);
+
+  // Сброс состояния при новом раунде
+  useEffect(() => {
+    if (currentRound <= totalRounds && !isBlocked && totalRounds > 0 && currentRound >= 1) {
       setPlayerAttack(null);
       setOpponentDefense(null);
       setRoundResult(null);
       setBothChosen(false);
-      // Оба игрока могут выбирать одновременно (игра в слепую)
       setIsPlayerTurn(true);
       setIsWaiting(false);
+      processingRef.current = false;
+    }
+  }, [currentRound, totalRounds, isBlocked]);
+  
+  // Логика бота - бот всегда играет за противоположную роль
+  // Если игрок - защитник (преподаватель), бот - атакующий (ученик)
+  // Если игрок - атакующий (ученик), бот - защитник (преподаватель)
+  useEffect(() => {
+    if (isBotGame && currentRound <= totalRounds && !isBlocked && !isWaiting && !processingRef.current) {
+      // Бот играет за защитника (если игрок - атакующий)
+      if (isAttacker && opponentDefense === null) {
+        const timer = setTimeout(() => {
+          if (!isBlocked && opponentDefense === null && !processingRef.current && currentRound <= totalRounds) {
+            const defensePosition = positions[Math.floor(Math.random() * positions.length)].id;
+            logAction('botDefense', { position: defensePosition, round: currentRound });
+            setOpponentDefense(defensePosition);
+            // checkRoundResult будет вызван автоматически через useEffect
+          }
+        }, 800 + Math.random() * 1200);
+        return () => clearTimeout(timer);
+      }
       
-      // Для бота (защитника) симулируем выбор
-      if (isDefender) {
-        setTimeout(() => {
-          const defensePosition = positions[Math.floor(Math.random() * positions.length)].id;
-          setOpponentDefense(defensePosition);
-          setIsPlayerTurn(false);
-          checkRoundResult();
-        }, 500 + Math.random() * 1000); // Случайная задержка для реалистичности
+      // Бот играет за атакующего (если игрок - защитник)
+      if (isDefender && playerAttack === null) {
+        const timer = setTimeout(() => {
+          if (!isBlocked && playerAttack === null && !processingRef.current && currentRound <= totalRounds) {
+            const attackPosition = positions[Math.floor(Math.random() * positions.length)].id;
+            logAction('botAttack', { position: attackPosition, round: currentRound });
+            setPlayerAttack(attackPosition);
+            // checkRoundResult будет вызван автоматически через useEffect
+          }
+        }, 800 + Math.random() * 1200);
+        return () => clearTimeout(timer);
       }
     }
-  }, [currentRound, isBlocked, isDefender]);
-
-  // Проверяем результат когда оба выбрали
-  useEffect(() => {
-    if (playerAttack !== null && opponentDefense !== null && !bothChosen && !isBlocked) {
-      checkRoundResult();
-    }
-  }, [playerAttack, opponentDefense, bothChosen, isBlocked, checkRoundResult]);
+  }, [isBotGame, isAttacker, isDefender, currentRound, isBlocked, playerAttack, opponentDefense, isWaiting, bothChosen]);
 
   return (
     <div className="football-game">
@@ -148,7 +201,7 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
           <span>{isAttacker ? 'Вы (Атака)' : 'Вы (Защита)'}: {isAttacker ? playerScore : opponentScore}</span>
         </div>
         <div className="score-item">
-          <span>Раунд {Math.min(currentRound, totalRounds)}/{totalRounds}</span>
+          <span>Раунд {Math.min(Math.max(currentRound, 1), totalRounds)}/{totalRounds}</span>
         </div>
         <div className="score-item">
           <span>{isAttacker ? 'Соперник (Защита)' : 'Соперник (Атака)'}: {isAttacker ? opponentScore : playerScore}</span>
@@ -191,9 +244,7 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole }) {
       )}
       
       {((isAttacker && playerAttack !== null && !bothChosen) || (isDefender && opponentDefense !== null && !bothChosen)) && (
-        <div className="football-instruction">
-          Ожидание выбора соперника...
-        </div>
+        <div className="football-instruction">Ожидание выбора соперника...</div>
       )}
     </div>
   );
@@ -203,8 +254,8 @@ FootballGame.propTypes = {
   rounds: PropTypes.number.isRequired,
   onRoundFinish: PropTypes.func,
   onGameFinish: PropTypes.func.isRequired,
-  playerRole: PropTypes.string
+  playerRole: PropTypes.string,
+  isBotGame: PropTypes.bool
 };
 
 export default FootballGame;
-
