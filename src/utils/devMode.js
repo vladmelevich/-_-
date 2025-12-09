@@ -1,5 +1,5 @@
 // Dev Mode - логирование ошибок в терминал компилятора
-
+//Active
 // Логирование ошибок (выводится в терминал Vite)
 export const logError = (category, error, context = null) => {
   const timestamp = new Date().toLocaleTimeString('ru-RU');

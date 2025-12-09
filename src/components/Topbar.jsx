@@ -19,7 +19,7 @@ function Topbar() {
   return (
     <header className="topbar">
       <div className="topbar__left">
-        <h1 className="brand-title">Mellstroy</h1>
+        <h1 className="brand-title">ЗАЧЕМ ТЕБЕ КАЗИНО</h1>
       </div>
       <div className="topbar__actions">
         <div className="topbar__role-switch">
