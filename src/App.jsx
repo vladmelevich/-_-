@@ -97,10 +97,10 @@ function App() {
     }
   }, []);
 
-  const handleBackToMain = () => {
+  const handleBackToMain = useCallback(() => {
     setCurrentPage('main');
     setCurrentMode(null);
-  };
+  }, []);
 
   const handleResetFilters = () => {
     setSelectedSubject(null);
@@ -123,11 +123,18 @@ function App() {
       handleModePageOpen(modeId, startGame);
     };
     
+    // Слушаем событие перехода на главную
+    const handleGoToMain = () => {
+      handleBackToMain();
+    };
+    
     window.addEventListener('modeChange', handleModeChange);
+    window.addEventListener('goToMain', handleGoToMain);
     return () => {
       window.removeEventListener('modeChange', handleModeChange);
+      window.removeEventListener('goToMain', handleGoToMain);
     };
-  }, [handleModePageOpen]);
+  }, [handleModePageOpen, handleBackToMain]);
 
   if (currentPage === 'mode' && currentMode) {
     return (

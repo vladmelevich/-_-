@@ -54,6 +54,10 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     return newDeck;
   };
 
+  // ========== МОДУЛЬ ПОДСЧЕТА ОЧКОВ В BLACKJACK ==========
+  // Функция calculateTotal вычисляет сумму очков карт в руке
+  // Обрабатывает тузы (A) как 11 или 1 в зависимости от общей суммы
+  // J, Q, K считаются как 10 очков
   const calculateTotal = (cards) => {
     let total = 0;
     let aces = 0;
@@ -68,6 +72,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       }
     });
     
+    // Обработка тузов: сначала пытаемся использовать как 11, если не перебор
     for (let i = 0; i < aces; i++) {
       if (total + 11 <= 21) {
         total += 11;
@@ -78,6 +83,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     return total;
   };
+  // ========== КОНЕЦ МОДУЛЯ ПОДСЧЕТА ОЧКОВ ==========
 
   const startRound = () => {
     if (processingRef.current || isBlocked || currentRound > rounds) return;
@@ -99,7 +105,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
   };
 
   useEffect(() => {
-    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
+    if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1 && playerCards.length === 0 && !processingRef.current) {
       try {
         startRound();
       } catch (error) {
@@ -107,7 +113,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
         processingRef.current = false;
       }
     }
-  }, [currentRound, rounds, isBlocked]);
+  }, [currentRound, rounds, isBlocked, playerCards.length]);
 
   const handleHit = () => {
     if (!isPlayerTurn || isWaiting || playerTotal >= 21 || isBlocked || deck.length === 0) return;
@@ -191,23 +197,47 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
           if (tied) {
             setRoundTied(true);
             setTimeout(() => {
-              setRoundTied(false);
-              if (roundNumber < rounds) {
-                setCurrentRound(roundNumber + 1);
+              if (isBlocked) {
                 processingRef.current = false;
-              } else {
-                processingRef.current = false;
+                return;
               }
-            }, 2000);
+              setRoundTied(false);
+              // Вызываем onRoundFinish с null для продления раунда при ничьей
+              if (onRoundFinish) {
+                onRoundFinish(roundNumber, null);
+              }
+              // При ничьей не увеличиваем currentRound - раунд будет переигран
+              // Сбрасываем состояние для переигровки
+              setPlayerCards([]);
+              setOpponentCards([]);
+              setPlayerTotal(0);
+              setOpponentTotal(0);
+              setDeck([]);
+              setIsPlayerTurn(true);
+              setIsWaiting(false);
+                processingRef.current = false;
+              
+              // Запускаем новый раунд после задержки
+              // Используем принудительный запуск через небольшой таймаут
+              setTimeout(() => {
+                if (!isBlocked && currentRound === roundNumber && playerCards.length === 0) {
+                  processingRef.current = false;
+                  startRound();
+                }
+              }, 1500);
+            }, 3000);
             return currentOpponentTotal;
           }
           
-          // Обновляем счет только один раз
+          // ========== МОДУЛЬ ОБНОВЛЕНИЯ СЧЕТА ИГРОКОВ ==========
+          // Обновляем счет только один раз (только если не ничья)
+          // playerScore и opponentScore - это счет игрока и соперника за всю игру
           if (playerWon) {
             setPlayerScore(prev => prev + 1);
           } else {
             setOpponentScore(prev => prev + 1);
           }
+          // ========== КОНЕЦ МОДУЛЯ ОБНОВЛЕНИЯ СЧЕТА ==========
           
           // Проверяем условия завершения игры с задержкой, используя функциональные обновления
           setTimeout(() => {
@@ -218,6 +248,8 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             
             setPlayerScore(prevPlayer => {
               setOpponentScore(prevOpponent => {
+                // ========== МОДУЛЬ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ИГРЫ ==========
+                // Проверяем, достиг ли кто-то половины раундов (победа досрочно)
                 const halfRounds = Math.ceil(rounds / 2);
                 
                 if (prevPlayer > halfRounds) {
@@ -237,14 +269,27 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
                   }, 2000);
                   return prevOpponent;
                 }
+                // ========== КОНЕЦ МОДУЛЯ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ==========
                 
                 // Переход к следующему раунду с задержкой
                 if (roundNumber < rounds) {
                   setTimeout(() => {
+                    if (isBlocked) {
+                      processingRef.current = false;
+                      return;
+                    }
                     if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
+                    // Сбрасываем состояние перед следующим раундом
+                    setPlayerCards([]);
+                    setOpponentCards([]);
+                    setPlayerTotal(0);
+                    setOpponentTotal(0);
+                    setDeck([]);
+                    setIsPlayerTurn(true);
+                    setIsWaiting(false);
                     setCurrentRound(roundNumber + 1);
                     processingRef.current = false;
-                  }, 2000);
+                  }, 3000);
                 } else {
                   setIsBlocked(true);
                   processingRef.current = false;
@@ -271,18 +316,18 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     <div className="blackjack-game">
       <div className="game-score">
         <div className="score-item">
-          <span>Вы: {playerScore}</span>
+          <span>Вы: {Math.floor(playerScore / 2)}</span>
         </div>
         <div className="score-item">
           <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
         </div>
         <div className="score-item">
-          <span>Соперник: {opponentScore}</span>
+          <span>Соперник: {Math.floor(opponentScore / 2)}</span>
         </div>
       </div>
       
       {roundTied && (
-        <div className="blackjack-tied">Ничья! Раунд увеличивается на 1</div>
+        <div className="blackjack-tied">Ничья, раунд будет переигран</div>
       )}
       
       <div className="blackjack-container">

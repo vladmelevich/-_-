@@ -63,67 +63,73 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
       
       // Обновляем счет только один раз и проверяем условия завершения игры
       setTimeout(() => {
-        setPlayerScore(prevPlayer => {
-          setOpponentScore(prevOpponent => {
-            // Обновляем счет только если есть победитель
-            let newPlayerScore = prevPlayer;
-            let newOpponentScore = prevOpponent;
-            
-            if (teacherWon) {
-              // Преподаватель выиграл
-              newPlayerScore = prevPlayer + 1;
+        if (isBlocked || processingRef.current === false) {
+          processingRef.current = false;
+          return;
+        }
+        
+        // Определяем, выиграл ли текущий игрок
+        const playerWon = isTeacher ? teacherWon : !teacherWon;
+        
+        // Обновляем счет
+        if (playerWon) {
+          setPlayerScore(prev => prev + 1);
             } else {
-              // Ученик выиграл
-              newOpponentScore = prevOpponent + 1;
-            }
-            
+          setOpponentScore(prev => prev + 1);
+        }
+        
+        // Проверяем условия завершения игры с задержкой
+        setTimeout(() => {
+          if (isBlocked) {
+            processingRef.current = false;
+            return;
+          }
+          
+          setPlayerScore(prevPlayer => {
+            setOpponentScore(prevOpponent => {
             const halfRounds = Math.ceil(rounds / 2);
             
-            if (newPlayerScore > halfRounds) {
+              if (prevPlayer > halfRounds) {
               setIsBlocked(true);
               processingRef.current = false;
               setTimeout(() => {
                 if (onGameFinish) onGameFinish(true);
               }, 2000);
-              return newOpponentScore;
+                return prevOpponent;
             }
             
-            if (newOpponentScore > halfRounds) {
+              if (prevOpponent > halfRounds) {
               setIsBlocked(true);
               processingRef.current = false;
               setTimeout(() => {
                 if (onGameFinish) onGameFinish(false);
               }, 2000);
-              return newOpponentScore;
+                return prevOpponent;
             }
             
-            setCurrentRound(prevRound => {
-              if (prevRound === roundNumber && prevRound < rounds) {
-                const nextRound = prevRound + 1;
+              // Переход к следующему раунду
+              if (roundNumber < rounds) {
                 setTimeout(() => {
-                  if (onRoundFinish) onRoundFinish(prevRound, teacherWon);
+                  if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
                   setTeacherChoice(null);
                   setRandomNumber(null);
+                  setCurrentRound(roundNumber + 1);
                   processingRef.current = false;
                 }, 2500);
-                return nextRound;
-              } else if (prevRound === roundNumber && prevRound >= rounds) {
+              } else {
                 setIsBlocked(true);
                 processingRef.current = false;
-                const isWinner = newPlayerScore > newOpponentScore;
+                const isWinner = prevPlayer > prevOpponent;
                 setTimeout(() => {
                   if (onGameFinish) onGameFinish(isWinner);
                 }, 2000);
-                return prevRound;
               }
-              processingRef.current = false;
-              return prevRound;
-            });
             
-            return newOpponentScore;
+              return prevOpponent;
           });
-          return newPlayerScore;
+            return prevPlayer;
         });
+        }, 500);
       }, 1500);
     }, 1200);
   };
@@ -222,7 +228,11 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
             <div className="nvuti-number-display">
               <div className="nvuti-number-label">Выпало число:</div>
               <div className="nvuti-number">{randomNumber}</div>
-              <div className="nvuti-winner">
+              <div className={`nvuti-winner ${(() => {
+                const teacherWon = (teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50);
+                const playerWon = isTeacher ? teacherWon : !teacherWon;
+                return playerWon ? 'nvuti-winner--win' : 'nvuti-winner--lose';
+              })()}`}>
                 {((teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50))
                   ? (isTeacher ? 'Вы выиграли раунд!' : 'Преподаватель выиграл раунд!')
                   : (isTeacher ? 'Вы проиграли раунд!' : 'Вы выиграли раунд!')}

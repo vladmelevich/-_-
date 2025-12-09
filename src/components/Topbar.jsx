@@ -16,10 +16,29 @@ function Topbar() {
     window.dispatchEvent(new CustomEvent('roleChanged'));
   };
 
+  const handleGoToMain = () => {
+    // Отправляем событие для перехода на главную страницу
+    window.dispatchEvent(new CustomEvent('goToMain'));
+  };
+
   return (
     <header className="topbar">
       <div className="topbar__left">
-        <h1 className="brand-title">ЗАЧЕМ ТЕБЕ КАЗИНО</h1>
+        <h1 
+          className="brand-title" 
+          onClick={handleGoToMain}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleGoToMain();
+            }
+          }}
+        >
+          Зачем тебе казино?
+        </h1>
       </div>
       <div className="topbar__actions">
         <div className="topbar__role-switch">
