@@ -33,6 +33,9 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
   const [roundResult, setRoundResult] = useState(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [bothChosen, setBothChosen] = useState(false);
+  const [goalkeeperPosition, setGoalkeeperPosition] = useState(null);
+  const [ballPosition, setBallPosition] = useState(null);
+  const [showAnimation, setShowAnimation] = useState(false);
   const processingRef = useRef(false);
 
   const isTeacher = playerRole === 'teacher';
@@ -40,11 +43,11 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
   const isDefender = isTeacher;
 
   const positions = [
-    { id: 1, label: 'Левый верхний угол' },
-    { id: 2, label: 'Правый верхний угол' },
-    { id: 3, label: 'Левый нижний угол' },
-    { id: 4, label: 'Правый нижний угол' },
-    { id: 5, label: 'Центр сверху' }
+    { id: 1, label: 'Левый верхний', x: 15, y: 10 },
+    { id: 2, label: 'Правый верхний', x: 85, y: 10 },
+    { id: 3, label: 'Левый нижний', x: 15, y: 90 },
+    { id: 4, label: 'Правый нижний', x: 85, y: 90 },
+    { id: 5, label: 'Центр', x: 50, y: 50 }
   ];
 
   const handleAttack = (positionId) => {
@@ -91,6 +94,14 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
       const attackPos = playerAttack;
       const defensePos = opponentDefense;
       
+      // Устанавливаем позиции для анимации
+      const attackPosition = positions.find(p => p.id === attackPos);
+      const defensePosition = positions.find(p => p.id === defensePos);
+      
+      setGoalkeeperPosition(defensePosition);
+      setBallPosition(attackPosition);
+      setShowAnimation(true);
+      
       setTimeout(() => {
         const blocked = attackPos === defensePos;
         
@@ -104,7 +115,7 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
           processingRef.current = false;
           setTimeout(() => {
             if (onGameFinish) onGameFinish(playerWon);
-          }, 2000);
+          }, 3000);
         } else {
           // Если не заблокирован, то атакующий (ученик) побеждает
           const attackerWon = true;
@@ -118,7 +129,10 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
               setTimeout(() => {
                 if (onRoundFinish) onRoundFinish(prevRound, attackerWon);
                 processingRef.current = false;
-              }, 2000);
+                setShowAnimation(false);
+                setGoalkeeperPosition(null);
+                setBallPosition(null);
+              }, 3000);
               return nextRound;
             } else if (prevRound === roundNumber && prevRound >= totalRounds) {
               setIsBlocked(true);
@@ -131,14 +145,17 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
                   if (onGameFinish) onGameFinish(finalPlayerWon);
                   return prevPlayer;
                 });
-              }, 2000);
+              }, 3000);
               return prevRound;
             }
             processingRef.current = false;
+            setShowAnimation(false);
+            setGoalkeeperPosition(null);
+            setBallPosition(null);
             return prevRound;
           });
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
@@ -157,6 +174,9 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
       setBothChosen(false);
       setIsPlayerTurn(true);
       setIsWaiting(false);
+      setGoalkeeperPosition(null);
+      setBallPosition(null);
+      setShowAnimation(false);
       processingRef.current = false;
     }
   }, [currentRound, totalRounds, isBlocked]);
@@ -209,21 +229,63 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
       </div>
       
       <div className="football-field">
-        <div className="football-positions">
-          {positions.map((pos) => (
-            <button
-              key={pos.id}
-              className={`football-position ${playerAttack === pos.id && bothChosen ? 'football-position--selected' : ''} ${opponentDefense === pos.id && bothChosen ? 'football-position--defended' : ''}`}
-              onClick={() => isAttacker ? handleAttack(pos.id) : handleDefense(pos.id)}
-              disabled={!isPlayerTurn || isWaiting || isBlocked || (isAttacker && playerAttack !== null) || (isDefender && opponentDefense !== null)}
-            >
-              <div className="football-position-label">{pos.label}</div>
-              {playerAttack === pos.id && bothChosen && <div className="football-marker">⚽</div>}
-              {opponentDefense === pos.id && bothChosen && <div className="football-marker">🛡️</div>}
-            </button>
-          ))}
+        {/* Визуализация ворот */}
+        <div className="football-goal-container">
+          <div className="football-goal">
+            {/* Зоны ворот */}
+            {positions.map((pos) => (
+              <button
+                key={pos.id}
+                className={`football-goal-zone ${playerAttack === pos.id && bothChosen ? 'football-goal-zone--attacked' : ''} ${opponentDefense === pos.id && bothChosen ? 'football-goal-zone--defended' : ''}`}
+                style={{
+                  position: 'absolute',
+                  left: `${pos.x}%`,
+                  top: `${pos.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: pos.id === 5 ? '20%' : '15%',
+                  height: pos.id === 5 ? '20%' : '15%'
+                }}
+                onClick={() => isAttacker ? handleAttack(pos.id) : handleDefense(pos.id)}
+                disabled={!isPlayerTurn || isWaiting || isBlocked || (isAttacker && playerAttack !== null) || (isDefender && opponentDefense !== null)}
+              >
+                <span className="football-zone-label">{pos.label}</span>
+              </button>
+            ))}
+            
+            {/* Вратарь (показывается только после выбора защиты) */}
+            {goalkeeperPosition && showAnimation && (
+              <div 
+                className="football-goalkeeper-animated"
+                style={{
+                  left: `${goalkeeperPosition.x}%`,
+                  top: `${goalkeeperPosition.y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                🧤
+              </div>
+            )}
+            
+            {/* Мяч (показывается только после выбора атаки) */}
+            {ballPosition && showAnimation && (
+              <div 
+                className={`football-ball-animated ${roundResult === 'scored' ? 'football-ball-animated--scored' : 'football-ball-animated--blocked'}`}
+                style={{
+                  left: `${ballPosition.x}%`,
+                  top: `${ballPosition.y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                ⚽
+              </div>
+            )}
+            
+            {/* Сетка ворот */}
+            <div className="football-goal-net"></div>
+          </div>
         </div>
         
+        {/* Результат раунда */}
         {roundResult && bothChosen && (
           <div className={`football-result ${roundResult === 'scored' ? 'football-result--scored' : 'football-result--blocked'}`}>
             {roundResult === 'scored' ? '⚽ ГОЛ!' : '🛡️ Заблокировано! Защитник побеждает!'}
@@ -231,15 +293,16 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
         )}
       </div>
       
+      {/* Инструкции */}
       {isAttacker && isPlayerTurn && !isWaiting && !isBlocked && playerAttack === null && (
         <div className="football-instruction">
-          Выберите позицию для атаки (соперник не видит ваш выбор)
+          Выберите зону ворот для атаки (соперник не видит ваш выбор)
         </div>
       )}
       
       {isDefender && isPlayerTurn && !isWaiting && !isBlocked && opponentDefense === null && (
         <div className="football-instruction">
-          Выберите позицию для защиты (соперник не видит ваш выбор)
+          Выберите зону ворот для защиты (соперник не видит ваш выбор)
         </div>
       )}
       

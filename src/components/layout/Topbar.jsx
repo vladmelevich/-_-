@@ -1,8 +1,9 @@
 import React from 'react';
-import { Search, Bell, Wallet, User, Menu } from 'lucide-react';
+import { Bell, Wallet, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
+import GameSearch from '../GameSearch';
 
 const Topbar = () => {
   const { user } = useAuth();
@@ -11,21 +12,7 @@ const Topbar = () => {
   return (
     <header className="h-[80px] px-6 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-10 border-b border-white/5">
       {/* Search Bar */}
-      <div className="flex-1 max-w-xl">
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-11 pr-4 py-3 bg-[#130f1f] border border-white/5 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
-            placeholder={t('searchGames')}
-          />
-          <button className="absolute right-2 top-2 bottom-2 bg-white/5 hover:bg-white/10 text-gray-400 px-3 rounded-lg text-xs font-bold transition-colors">
-            {t('providers')}
-          </button>
-        </div>
-      </div>
+      <GameSearch />
 
       {/* Right Actions */}
       <div className="flex items-center gap-4 ml-6">

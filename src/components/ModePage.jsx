@@ -498,8 +498,11 @@ function ModePage({ modeId, modeLabel, onBack }) {
   
   const handleCloseResult = () => {
     setGameResult(null);
-    setGameState('idle');
-    setGameRounds(null);
+    // После закрытия нотификации сбрасываем состояние игры
+    if (gameState === 'finished') {
+      setGameState('idle');
+      setGameRounds(null);
+    }
   };
   
   // Рендер игры

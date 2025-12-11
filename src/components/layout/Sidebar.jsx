@@ -117,7 +117,7 @@ const Sidebar = () => {
           <span className="font-bold text-xl text-white">M</span>
         </div>
         <div>
-          <h1 className="text-white font-bold text-lg tracking-wide">MELLSTROY</h1>
+          <h1 className="text-white font-bold text-lg tracking-wide">MCB</h1>
           <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">MCB Royale Casino</span>
         </div>
       </Link>
