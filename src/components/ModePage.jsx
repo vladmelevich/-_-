@@ -8,6 +8,7 @@ import CoinflipGame from './games/CoinflipGame.jsx';
 import NvutiGame from './games/NvutiGame.jsx';
 import FootballGame from './games/FootballGame.jsx';
 import BlackjackGame from './games/BlackjackGame.jsx';
+import { useLanguage } from '../context/LanguageContext';
 import { log, logError, logAction, logState, logData, validateAndLog } from '../utils/devMode.js';
 
 const modeDescriptions = {
@@ -20,6 +21,8 @@ const modeDescriptions = {
 };
 
 function ModePage({ modeId, modeLabel, onBack }) {
+  const { t } = useLanguage();
+  
   // Базовые состояния
   const [playerRole, setPlayerRole] = useState(() => {
     return localStorage.getItem('selectedRole') || 'student';
@@ -558,7 +561,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
       
       <div className="mode-page__header">
         <button className="mode-page__back-button" type="button" onClick={onBack}>
-          ← Назад
+          ← {t('back')}
         </button>
         <h1 className="mode-page__title">{modeLabel}</h1>
         <div></div>
@@ -580,15 +583,15 @@ function ModePage({ modeId, modeLabel, onBack }) {
               </div>
             ) : (
               <div className="game-field-placeholder">
-                <p>Игровое поле</p>
-                <p className="game-field-placeholder__subtitle">Создайте сессию или присоединитесь к существующей</p>
+                <p>{t('gameField')}</p>
+                <p className="game-field-placeholder__subtitle">{t('createOrJoin')}</p>
               </div>
             )}
           </div>
           
           {modeId !== 'football' ? (
             <div className="mode-page__rounds-selection">
-              <label className="rounds-label">Количество раундов:</label>
+              <label className="rounds-label">{t('roundsCount')}</label>
               <div className="rounds-buttons">
                 {[1, 3, 5, 7].map((num) => (
                   <button
@@ -600,13 +603,13 @@ function ModePage({ modeId, modeLabel, onBack }) {
                     {num}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className={`round-button ${showCustomInput ? 'round-button--active' : ''}`}
-                  onClick={() => handleRoundsChange('custom')}
-                >
-                  Другое
-                </button>
+                  <button
+                    type="button"
+                    className={`round-button ${showCustomInput ? 'round-button--active' : ''}`}
+                    onClick={() => handleRoundsChange('custom')}
+                  >
+                    {t('other')}
+                  </button>
               </div>
               {showCustomInput && (
                 <div className="custom-rounds-input">
@@ -616,24 +619,24 @@ function ModePage({ modeId, modeLabel, onBack }) {
                     step="2"
                     value={customRounds}
                     onChange={(e) => handleCustomRoundsChange(e.target.value)}
-                    placeholder="Введите нечетное число"
+                    placeholder={t('enterOddNumber')}
                     className="custom-rounds-input__field"
                   />
                   {customRounds && rounds && rounds % 2 !== 0 && (
                     <span className="custom-rounds-input__valid">✓</span>
                   )}
                   {customRounds && (!rounds || rounds % 2 === 0) && (
-                    <span className="custom-rounds-input__invalid">Число должно быть нечетным</span>
+                    <span className="custom-rounds-input__invalid">{t('mustBeOdd')}</span>
                   )}
                 </div>
               )}
               <div className="player-name-input">
-                <label className="player-name-label">Ваше имя:</label>
+                <label className="player-name-label">{t('yourName')}:</label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Введите ваше имя"
+                  placeholder={t('enterYourName')}
                   className="player-name-input__field"
                 />
               </div>
@@ -644,7 +647,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   onClick={handleCreateSession}
                   disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
-                  Создать сессию
+                  {t('createSession')}
                 </button>
                 <button
                   className="create-session-button create-session-button--bot"
@@ -652,22 +655,22 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   onClick={handlePlayWithBot}
                   disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
-                  Играть с ботом
+                  {t('playWithBot')}
                 </button>
               </div>
             </div>
           ) : (
             <div className="mode-page__rounds-selection">
               <div className="football-rounds-info">
-                <p>Football всегда играется в 3 раунда</p>
+                <p>{t('always3Rounds')}</p>
               </div>
               <div className="player-name-input">
-                <label className="player-name-label">Ваше имя:</label>
+                <label className="player-name-label">{t('yourName')}:</label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Введите ваше имя"
+                  placeholder={t('enterYourName')}
                   className="player-name-input__field"
                 />
               </div>
@@ -678,7 +681,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   onClick={handleCreateSession}
                   disabled={gameState === 'playing' || gameState === 'waiting'}
                 >
-                  Создать сессию
+                  {t('createSession')}
                 </button>
                 <button
                   className="create-session-button create-session-button--bot"
@@ -686,7 +689,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   onClick={handlePlayWithBot}
                   disabled={gameState === 'playing' || gameState === 'waiting'}
                 >
-                  Играть с ботом
+                  {t('playWithBot')}
                 </button>
               </div>
             </div>
@@ -695,7 +698,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
         
         <div className="mode-page__sessions">
           <div className="sessions-header">
-            <h3>Активные сессии</h3>
+            <h3>{t('activeSessions')}</h3>
           </div>
           <div className="sessions-filters">
             <select
@@ -703,21 +706,21 @@ function ModePage({ modeId, modeLabel, onBack }) {
               value={creatorFilter}
               onChange={(e) => setCreatorFilter(e.target.value)}
             >
-              <option value="all">Все</option>
-              <option value="student">Ученики</option>
-              <option value="teacher">Преподаватели</option>
+              <option value="all">{t('all')}</option>
+              <option value="student">{t('students')}</option>
+              <option value="teacher">{t('teachers')}</option>
             </select>
             <button
               className={`filter-mode-button ${modeFilter ? 'filter-mode-button--active' : ''}`}
               type="button"
               onClick={() => setModeFilter(!modeFilter)}
             >
-              Только {modeLabel}
+              {t('onlyThisGame', { game: modeLabel })}
             </button>
           </div>
           <div className="sessions-list">
             {filteredSessions.length === 0 ? (
-              <div className="no-sessions">Нет активных сессий</div>
+              <div className="no-sessions">{t('noActiveSessions')}</div>
             ) : (
               filteredSessions.map((session) => {
                 const canJoin = playerRole !== session.creator;
@@ -726,18 +729,18 @@ function ModePage({ modeId, modeLabel, onBack }) {
                     <div className="session-card__mode">{session.mode}</div>
                     <div className="session-card__creator">
                       <span className="session-card__creator-label">
-                        {session.creator === 'student' ? 'Ученик' : 'Преподаватель'}:
+                        {session.creator === 'student' ? t('students') : t('teachers')}:
                       </span>
                       <span className="session-card__creator-name">{session.creatorName}</span>
                     </div>
-                    <div className="session-card__rounds">Раундов: {session.rounds}</div>
+                    <div className="session-card__rounds">{t('rounds')}: {session.rounds}</div>
                     <button
                       className="session-card__join-button"
                       type="button"
                       disabled={!canJoin || gameState === 'playing' || gameState === 'waiting'}
                       onClick={() => canJoin && handleJoinSession(session.id)}
                     >
-                      {canJoin ? 'Присоединиться' : 'Недоступно'}
+                      {canJoin ? t('join') : t('unavailable')}
                     </button>
                   </div>
                 );

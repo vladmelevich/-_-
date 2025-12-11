@@ -1,7 +1,10 @@
 import PropTypes from 'prop-types';
 import GameCard from './GameCard.jsx';
+import { useLanguage } from '../context/LanguageContext';
 
 function GameGrid({ games, onResetFilters, onModePageOpen }) {
+  const { t } = useLanguage();
+  
   const handleShowAll = () => {
     if (onResetFilters) {
       onResetFilters();
@@ -11,9 +14,9 @@ function GameGrid({ games, onResetFilters, onModePageOpen }) {
   return (
     <section className="game-grid">
       <div className="section-header">
-        <h2>Популярные</h2>
+        <h2>{t('popular')}</h2>
         <button className="button button--ghost" type="button" onClick={handleShowAll}>
-          Все игры ›
+          {t('allGames')} ›
         </button>
       </div>
       <div className="game-grid__inner">
