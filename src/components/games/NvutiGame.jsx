@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
 function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame }) {
-  // Валидация пропсов
   useEffect(() => {
     const validation = validateAndLog(
       { rounds, playerRole, isBotGame },
@@ -29,12 +28,30 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
   const [randomNumber, setRandomNumber] = useState(null);
   const [isWaiting, setIsWaiting] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [displayNumber, setDisplayNumber] = useState(null);
   const processingRef = useRef(false);
 
   const isTeacher = playerRole === 'teacher';
 
+  // Анимация спиннера чисел
+  const animateNumber = (finalNumber, callback) => {
+    setIsSpinning(true);
+    let iterations = 0;
+    const maxIterations = 20;
+    const interval = setInterval(() => {
+      setDisplayNumber(Math.floor(Math.random() * 100) + 1);
+      iterations++;
+      if (iterations >= maxIterations) {
+        clearInterval(interval);
+        setDisplayNumber(finalNumber);
+        setIsSpinning(false);
+        if (callback) callback();
+      }
+    }, 80);
+  };
+
   const handleChoice = (choice, forceBot = false) => {
-    // Если это бот, пропускаем проверку isTeacher
     if (isWaiting || teacherChoice !== null || isBlocked || (!isTeacher && !forceBot) || processingRef.current) {
       log('game', 'Попытка выбора заблокирована', { isWaiting, teacherChoice, isBlocked, isTeacher, forceBot });
       return;
@@ -52,194 +69,277 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
     
     const roundNumber = currentRound;
     
-    // Показываем выбор преподавателя обоим участникам
     setTimeout(() => {
       const number = Math.floor(Math.random() * 100) + 1;
-      setRandomNumber(number);
       
-      const teacherWon = (choice === 'low' && number <= 50) || (choice === 'high' && number > 50);
-      
-      setIsWaiting(false);
-      
-      // Обновляем счет только один раз и проверяем условия завершения игры
-      setTimeout(() => {
-        if (isBlocked || processingRef.current === false) {
-          processingRef.current = false;
-          return;
-        }
+      animateNumber(number, () => {
+        setRandomNumber(number);
         
-        // Определяем, выиграл ли текущий игрок
-        const playerWon = isTeacher ? teacherWon : !teacherWon;
+        const teacherWon = (choice === 'low' && number <= 50) || (choice === 'high' && number > 50);
         
-        // Обновляем счет
-        if (playerWon) {
-          setPlayerScore(prev => prev + 1);
-            } else {
-          setOpponentScore(prev => prev + 1);
-        }
+        setIsWaiting(false);
         
-        // Проверяем условия завершения игры с задержкой
         setTimeout(() => {
-          if (isBlocked) {
+          if (isBlocked || processingRef.current === false) {
             processingRef.current = false;
             return;
           }
           
-          setPlayerScore(prevPlayer => {
-            setOpponentScore(prevOpponent => {
-            const halfRounds = Math.ceil(rounds / 2);
-            
-              if (prevPlayer > halfRounds) {
-              setIsBlocked(true);
+          const playerWon = isTeacher ? teacherWon : !teacherWon;
+          
+          if (playerWon) {
+            setPlayerScore(prev => prev + 1);
+          } else {
+            setOpponentScore(prev => prev + 1);
+          }
+          
+          setTimeout(() => {
+            if (isBlocked) {
               processingRef.current = false;
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(true);
-              }, 2000);
-                return prevOpponent;
+              return;
             }
             
-              if (prevOpponent > halfRounds) {
-              setIsBlocked(true);
-              processingRef.current = false;
-              setTimeout(() => {
-                if (onGameFinish) onGameFinish(false);
-              }, 2000);
-                return prevOpponent;
-            }
-            
-              // Переход к следующему раунду
-              if (roundNumber < rounds) {
-                setTimeout(() => {
-                  if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
-                  setTeacherChoice(null);
-                  setRandomNumber(null);
-                  setCurrentRound(roundNumber + 1);
-                  processingRef.current = false;
-                }, 2500);
-              } else {
+            setPlayerScore(prevPlayer => {
+              setOpponentScore(prevOpponent => {
+              const halfRounds = Math.ceil(rounds / 2);
+              
+                if (prevPlayer > halfRounds) {
                 setIsBlocked(true);
                 processingRef.current = false;
-                const isWinner = prevPlayer > prevOpponent;
                 setTimeout(() => {
-                  if (onGameFinish) onGameFinish(isWinner);
+                  if (onGameFinish) onGameFinish(true);
                 }, 2000);
+                  return prevOpponent;
               }
-            
-              return prevOpponent;
+              
+                if (prevOpponent > halfRounds) {
+                setIsBlocked(true);
+                processingRef.current = false;
+                setTimeout(() => {
+                  if (onGameFinish) onGameFinish(false);
+                }, 2000);
+                  return prevOpponent;
+              }
+              
+                if (roundNumber < rounds) {
+                  setTimeout(() => {
+                    if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
+                    setTeacherChoice(null);
+                    setRandomNumber(null);
+                    setDisplayNumber(null);
+                    setCurrentRound(roundNumber + 1);
+                    processingRef.current = false;
+                  }, 2500);
+                } else {
+                  setIsBlocked(true);
+                  processingRef.current = false;
+                  const isWinner = prevPlayer > prevOpponent;
+                  setTimeout(() => {
+                    if (onGameFinish) onGameFinish(isWinner);
+                  }, 2000);
+                }
+              
+                return prevOpponent;
+            });
+              return prevPlayer;
           });
-            return prevPlayer;
-        });
-        }, 500);
-      }, 1500);
-    }, 1200);
+          }, 500);
+        }, 1500);
+      });
+    }, 800);
   };
 
   useEffect(() => {
     if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setTeacherChoice(null);
       setRandomNumber(null);
+      setDisplayNumber(null);
       setIsWaiting(false);
+      setIsSpinning(false);
       processingRef.current = false;
     }
   }, [currentRound, rounds, isBlocked]);
   
-  // Логика бота - бот всегда играет за противоположную роль
-  // Если игрок - ученик, бот играет за преподавателя (делает выбор)
-  // Если игрок - преподаватель, бот не нужен (только преподаватель делает выбор)
   useEffect(() => {
-    // Бот играет за преподавателя только если игрок - ученик
     if (isBotGame && !isTeacher && currentRound <= rounds && !isBlocked && 
         teacherChoice === null && !isWaiting && !processingRef.current) {
       const timer = setTimeout(() => {
         if (!isBlocked && teacherChoice === null && !isWaiting && !processingRef.current && currentRound <= rounds) {
           const botChoice = Math.random() < 0.5 ? 'low' : 'high';
           logAction('botNvutiChoice', { choice: botChoice, round: currentRound });
-          handleChoice(botChoice, true); // forceBot = true для бота
+          handleChoice(botChoice, true);
         }
       }, 800 + Math.random() * 1200);
       return () => clearTimeout(timer);
     }
   }, [isBotGame, isTeacher, currentRound, isBlocked, teacherChoice, isWaiting]);
 
+  const getResultInfo = () => {
+    if (!randomNumber || !teacherChoice) return null;
+    const teacherWon = (teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50);
+    const playerWon = isTeacher ? teacherWon : !teacherWon;
+    return { teacherWon, playerWon };
+  };
+
+  const resultInfo = getResultInfo();
+
   return (
-    <div className="nvuti-game">
-      <div className="game-score">
-        <div className="score-item">
-          <span>Вы: {playerScore}</span>
+    <div className="nvuti-game-container">
+      {/* Декоративный фон */}
+      <div className="nvuti-bg-effect"></div>
+      
+      {/* Счёт игры */}
+      <div className="nvuti-scoreboard">
+        <div className="nvuti-score-card nvuti-score-card--player">
+          <div className="nvuti-score-icon">🎯</div>
+          <div className="nvuti-score-data">
+            <span className="nvuti-score-label">Вы</span>
+            <span className="nvuti-score-value">{playerScore}</span>
+          </div>
         </div>
-        <div className="score-item">
-          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
+        
+        <div className="nvuti-round-indicator">
+          <div className="nvuti-round-circle">
+            <span className="nvuti-round-num">{Math.min(Math.max(currentRound, 1), rounds)}</span>
+            <span className="nvuti-round-sep">/</span>
+            <span className="nvuti-round-total">{rounds}</span>
+          </div>
+          <span className="nvuti-round-text">раунд</span>
         </div>
-        <div className="score-item">
-          <span>Соперник: {opponentScore}</span>
+        
+        <div className="nvuti-score-card nvuti-score-card--opponent">
+          <div className="nvuti-score-icon">🤖</div>
+          <div className="nvuti-score-data">
+            <span className="nvuti-score-label">Соперник</span>
+            <span className="nvuti-score-value">{opponentScore}</span>
+          </div>
         </div>
       </div>
       
-      <div className="nvuti-container">
-        <div className="nvuti-choice-section">
-          <h3>{isTeacher ? 'Выберите диапазон (Преподаватель)' : 'Ожидание выбора преподавателя'}</h3>
-          {!isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
-            <div className="game-status">Ожидание выбора преподавателя...</div>
-          )}
-          {isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
-            <div className="nvuti-choices">
+      {/* Главная игровая область */}
+      <div className="nvuti-game-arena">
+        {/* Статус ожидания */}
+        {!isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
+          <div className="nvuti-waiting-banner">
+            <div className="nvuti-waiting-pulse"></div>
+            <span>Ожидание выбора преподавателя...</span>
+          </div>
+        )}
+        
+        {/* Выбор диапазона */}
+        {teacherChoice === null && !isWaiting && !isBlocked && (
+          <div className="nvuti-choice-section">
+            <h3 className="nvuti-choice-title">
+              {isTeacher ? '🎲 Выберите диапазон чисел' : '⏳ Ожидание выбора...'}
+            </h3>
+            <div className="nvuti-choice-cards">
               <button
-                className="nvuti-choice"
-                onClick={() => handleChoice('low')}
-                disabled={isBlocked || isWaiting}
+                className={`nvuti-choice-card nvuti-choice-card--low ${!isTeacher ? 'nvuti-choice-card--disabled' : ''}`}
+                onClick={() => isTeacher && handleChoice('low')}
+                disabled={!isTeacher || isBlocked || isWaiting}
               >
-                <div className="nvuti-range">1 - 50</div>
-                <div className="nvuti-label">Низкий</div>
+                <div className="nvuti-choice-range-visual">
+                  <div className="nvuti-range-bar nvuti-range-bar--low">
+                    <div className="nvuti-range-fill"></div>
+                  </div>
+                </div>
+                <div className="nvuti-choice-numbers">
+                  <span className="nvuti-choice-from">1</span>
+                  <span className="nvuti-choice-separator">—</span>
+                  <span className="nvuti-choice-to">50</span>
+                </div>
+                <span className="nvuti-choice-label">Низкий</span>
+                <span className="nvuti-choice-percent">50%</span>
               </button>
+              
               <button
-                className="nvuti-choice"
-                onClick={() => handleChoice('high')}
-                disabled={isBlocked || isWaiting}
+                className={`nvuti-choice-card nvuti-choice-card--high ${!isTeacher ? 'nvuti-choice-card--disabled' : ''}`}
+                onClick={() => isTeacher && handleChoice('high')}
+                disabled={!isTeacher || isBlocked || isWaiting}
               >
-                <div className="nvuti-range">51 - 100</div>
-                <div className="nvuti-label">Высокий</div>
+                <div className="nvuti-choice-range-visual">
+                  <div className="nvuti-range-bar nvuti-range-bar--high">
+                    <div className="nvuti-range-fill"></div>
+                  </div>
+                </div>
+                <div className="nvuti-choice-numbers">
+                  <span className="nvuti-choice-from">51</span>
+                  <span className="nvuti-choice-separator">—</span>
+                  <span className="nvuti-choice-to">100</span>
+                </div>
+                <span className="nvuti-choice-label">Высокий</span>
+                <span className="nvuti-choice-percent">50%</span>
               </button>
             </div>
-          )}
-          {!isTeacher && teacherChoice === null && !isWaiting && !isBlocked && (
-            <div className="nvuti-choices">
-              <div className="nvuti-choice nvuti-choice--disabled">
-                <div className="nvuti-range">1 - 50</div>
-                <div className="nvuti-label">Низкий</div>
+          </div>
+        )}
+        
+        {/* Отображение выбора */}
+        {teacherChoice !== null && (
+          <div className="nvuti-selection-display">
+            <div className="nvuti-selected-badge">
+              <span className="nvuti-selected-icon">{teacherChoice === 'low' ? '📉' : '📈'}</span>
+              <span className="nvuti-selected-text">
+                Преподаватель выбрал: <strong>{teacherChoice === 'low' ? '1-50 (Низкий)' : '51-100 (Высокий)'}</strong>
+              </span>
+            </div>
+          </div>
+        )}
+        
+        {/* Дисплей числа */}
+        {(isSpinning || displayNumber !== null) && (
+          <div className="nvuti-number-display">
+            <div className="nvuti-number-frame">
+              <div className="nvuti-number-glow"></div>
+              <div className={`nvuti-number-value ${isSpinning ? 'nvuti-number-value--spinning' : ''} ${resultInfo ? (resultInfo.playerWon ? 'nvuti-number-value--win' : 'nvuti-number-value--lose') : ''}`}>
+                {displayNumber || '?'}
               </div>
-              <div className="nvuti-choice nvuti-choice--disabled">
-                <div className="nvuti-range">51 - 100</div>
-                <div className="nvuti-label">Высокий</div>
-              </div>
+            </div>
+            <span className="nvuti-number-label">Выпавшее число</span>
+          </div>
+        )}
+        
+        {/* Результат раунда */}
+        {randomNumber !== null && !isSpinning && resultInfo && (
+          <div className={`nvuti-result-card ${resultInfo.playerWon ? 'nvuti-result-card--win' : 'nvuti-result-card--lose'}`}>
+            <span className="nvuti-result-icon">{resultInfo.playerWon ? '🎉' : '😔'}</span>
+            <span className="nvuti-result-text">
+              {resultInfo.teacherWon 
+                ? (isTeacher ? 'Вы выиграли раунд!' : 'Преподаватель выиграл раунд!')
+                : (isTeacher ? 'Вы проиграли раунд!' : 'Вы выиграли раунд!')}
+            </span>
+            <span className="nvuti-result-details">
+              Число {randomNumber} {randomNumber <= 50 ? '≤ 50 (Низкий)' : '> 50 (Высокий)'}
+            </span>
+          </div>
+        )}
+      </div>
+      
+      {/* Прогресс-бар */}
+      <div className="nvuti-progress-section">
+        <div className="nvuti-progress-bar">
+          <div 
+            className="nvuti-progress-fill nvuti-progress-fill--low"
+            style={{ width: '50%' }}
+          >
+            <span>1-50</span>
+          </div>
+          <div 
+            className="nvuti-progress-fill nvuti-progress-fill--high"
+            style={{ width: '50%' }}
+          >
+            <span>51-100</span>
+          </div>
+          {randomNumber !== null && (
+            <div 
+              className="nvuti-progress-marker"
+              style={{ left: `${randomNumber}%` }}
+            >
+              <div className="nvuti-marker-line"></div>
+              <div className="nvuti-marker-value">{randomNumber}</div>
             </div>
           )}
         </div>
-        
-        {teacherChoice !== null && (
-          <div className="nvuti-choice-display">
-            <div className="nvuti-choice-info">
-              Преподаватель выбрал: <strong>{teacherChoice === 'low' ? 'Низкий (1-50)' : 'Высокий (51-100)'}</strong>
-            </div>
-          </div>
-        )}
-        
-        {randomNumber !== null && (
-          <div className="nvuti-result">
-            <div className="nvuti-number-display">
-              <div className="nvuti-number-label">Выпало число:</div>
-              <div className="nvuti-number">{randomNumber}</div>
-              <div className={`nvuti-winner ${(() => {
-                const teacherWon = (teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50);
-                const playerWon = isTeacher ? teacherWon : !teacherWon;
-                return playerWon ? 'nvuti-winner--win' : 'nvuti-winner--lose';
-              })()}`}>
-                {((teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50))
-                  ? (isTeacher ? 'Вы выиграли раунд!' : 'Преподаватель выиграл раунд!')
-                  : (isTeacher ? 'Вы проиграли раунд!' : 'Вы выиграли раунд!')}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

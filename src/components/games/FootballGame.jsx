@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
 function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame }) {
-  // Валидация пропсов
   useEffect(() => {
     const validation = validateAndLog(
       { rounds, playerRole, isBotGame },
@@ -36,6 +35,7 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
   const [goalkeeperPosition, setGoalkeeperPosition] = useState(null);
   const [ballPosition, setBallPosition] = useState(null);
   const [showAnimation, setShowAnimation] = useState(false);
+  const [hoveredZone, setHoveredZone] = useState(null);
   const processingRef = useRef(false);
 
   const isTeacher = playerRole === 'teacher';
@@ -43,11 +43,11 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
   const isDefender = isTeacher;
 
   const positions = [
-    { id: 1, label: 'Левый верхний', x: 15, y: 10 },
-    { id: 2, label: 'Правый верхний', x: 85, y: 10 },
-    { id: 3, label: 'Левый нижний', x: 15, y: 90 },
-    { id: 4, label: 'Правый нижний', x: 85, y: 90 },
-    { id: 5, label: 'Центр', x: 50, y: 50 }
+    { id: 1, label: 'Верхний левый', shortLabel: '↖', x: 18, y: 22, emoji: '⬅️' },
+    { id: 2, label: 'Верхний правый', shortLabel: '↗', x: 82, y: 22, emoji: '➡️' },
+    { id: 3, label: 'Нижний левый', shortLabel: '↙', x: 18, y: 78, emoji: '⬅️' },
+    { id: 4, label: 'Нижний правый', shortLabel: '↘', x: 82, y: 78, emoji: '➡️' },
+    { id: 5, label: 'Центр', shortLabel: '●', x: 50, y: 50, emoji: '🎯' }
   ];
 
   const handleAttack = (positionId) => {
@@ -94,7 +94,6 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
       const attackPos = playerAttack;
       const defensePos = opponentDefense;
       
-      // Устанавливаем позиции для анимации
       const attackPosition = positions.find(p => p.id === attackPos);
       const defensePosition = positions.find(p => p.id === defensePos);
       
@@ -106,18 +105,14 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
         const blocked = attackPos === defensePos;
         
         if (blocked) {
-          // Если блок, то защитник (преподаватель) побеждает, атакующий (ученик) проигрывает
           setRoundResult('blocked');
-          // Если игрок - атакующий (ученик), он проиграл
-          // Если игрок - защитник (преподаватель), он победил
-          const playerWon = isDefender; // Защитник побеждает при блоке
+          const playerWon = isDefender;
           setIsBlocked(true);
           processingRef.current = false;
           setTimeout(() => {
             if (onGameFinish) onGameFinish(playerWon);
           }, 3000);
         } else {
-          // Если не заблокирован, то атакующий (ученик) побеждает
           const attackerWon = true;
           setPlayerScore(prev => prev + 1);
           setRoundResult('scored');
@@ -139,8 +134,6 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
               processingRef.current = false;
               setTimeout(() => {
                 setPlayerScore(prevPlayer => {
-                  // Если игрок - атакующий (ученик), он побеждает если забил хотя бы один гол
-                  // Если игрок - защитник (преподаватель), он проигрывает если соперник забил хотя бы один гол
                   const finalPlayerWon = isAttacker ? prevPlayer > 0 : prevPlayer === 0;
                   if (onGameFinish) onGameFinish(finalPlayerWon);
                   return prevPlayer;
@@ -165,7 +158,6 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
     }
   }, [playerAttack, opponentDefense, bothChosen, isBlocked]);
 
-  // Сброс состояния при новом раунде
   useEffect(() => {
     if (currentRound <= totalRounds && !isBlocked && totalRounds > 0 && currentRound >= 1) {
       setPlayerAttack(null);
@@ -181,32 +173,25 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
     }
   }, [currentRound, totalRounds, isBlocked]);
   
-  // Логика бота - бот всегда играет за противоположную роль
-  // Если игрок - защитник (преподаватель), бот - атакующий (ученик)
-  // Если игрок - атакующий (ученик), бот - защитник (преподаватель)
   useEffect(() => {
     if (isBotGame && currentRound <= totalRounds && !isBlocked && !isWaiting && !processingRef.current) {
-      // Бот играет за защитника (если игрок - атакующий)
       if (isAttacker && opponentDefense === null) {
         const timer = setTimeout(() => {
           if (!isBlocked && opponentDefense === null && !processingRef.current && currentRound <= totalRounds) {
             const defensePosition = positions[Math.floor(Math.random() * positions.length)].id;
             logAction('botDefense', { position: defensePosition, round: currentRound });
             setOpponentDefense(defensePosition);
-            // checkRoundResult будет вызван автоматически через useEffect
           }
         }, 800 + Math.random() * 1200);
         return () => clearTimeout(timer);
       }
       
-      // Бот играет за атакующего (если игрок - защитник)
       if (isDefender && playerAttack === null) {
         const timer = setTimeout(() => {
           if (!isBlocked && playerAttack === null && !processingRef.current && currentRound <= totalRounds) {
             const attackPosition = positions[Math.floor(Math.random() * positions.length)].id;
             logAction('botAttack', { position: attackPosition, round: currentRound });
             setPlayerAttack(attackPosition);
-            // checkRoundResult будет вызван автоматически через useEffect
           }
         }, 800 + Math.random() * 1200);
         return () => clearTimeout(timer);
@@ -215,100 +200,139 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
   }, [isBotGame, isAttacker, isDefender, currentRound, isBlocked, playerAttack, opponentDefense, isWaiting, bothChosen]);
 
   return (
-    <div className="football-game">
-      <div className="game-score">
-        <div className="score-item">
-          <span>{isAttacker ? 'Вы (Атака)' : 'Вы (Защита)'}: {isAttacker ? playerScore : opponentScore}</span>
-        </div>
-        <div className="score-item">
-          <span>Раунд {Math.min(Math.max(currentRound, 1), totalRounds)}/{totalRounds}</span>
-        </div>
-        <div className="score-item">
-          <span>{isAttacker ? 'Соперник (Защита)' : 'Соперник (Атака)'}: {isAttacker ? opponentScore : playerScore}</span>
-        </div>
-      </div>
+    <div className="football-game-container">
+      {/* Фон стадиона */}
+      <div className="football-stadium-bg"></div>
       
-      <div className="football-field">
-        {/* Визуализация ворот */}
-        <div className="football-goal-container">
-          <div className="football-goal">
-            {/* Зоны ворот */}
-            {positions.map((pos) => (
-              <button
-                key={pos.id}
-                className={`football-goal-zone ${playerAttack === pos.id && bothChosen ? 'football-goal-zone--attacked' : ''} ${opponentDefense === pos.id && bothChosen ? 'football-goal-zone--defended' : ''}`}
-                style={{
-                  position: 'absolute',
-                  left: `${pos.x}%`,
-                  top: `${pos.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: pos.id === 5 ? '20%' : '15%',
-                  height: pos.id === 5 ? '20%' : '15%'
-                }}
-                onClick={() => isAttacker ? handleAttack(pos.id) : handleDefense(pos.id)}
-                disabled={!isPlayerTurn || isWaiting || isBlocked || (isAttacker && playerAttack !== null) || (isDefender && opponentDefense !== null)}
-              >
-                <span className="football-zone-label">{pos.label}</span>
-              </button>
-            ))}
-            
-            {/* Вратарь (показывается только после выбора защиты) */}
-            {goalkeeperPosition && showAnimation && (
-              <div 
-                className="football-goalkeeper-animated"
-                style={{
-                  left: `${goalkeeperPosition.x}%`,
-                  top: `${goalkeeperPosition.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                🧤
-              </div>
-            )}
-            
-            {/* Мяч (показывается только после выбора атаки) */}
-            {ballPosition && showAnimation && (
-              <div 
-                className={`football-ball-animated ${roundResult === 'scored' ? 'football-ball-animated--scored' : 'football-ball-animated--blocked'}`}
-                style={{
-                  left: `${ballPosition.x}%`,
-                  top: `${ballPosition.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                ⚽
-              </div>
-            )}
-            
-            {/* Сетка ворот */}
-            <div className="football-goal-net"></div>
+      {/* Счёт игры */}
+      <div className="football-scoreboard">
+        <div className={`football-score-team ${isAttacker ? 'football-score-team--you' : ''}`}>
+          <div className="football-score-team-badge">⚽</div>
+          <div className="football-score-team-info">
+            <span className="football-score-team-name">{isAttacker ? 'Вы (Атака)' : 'Соперник (Атака)'}</span>
+            <span className="football-score-team-score">{isAttacker ? playerScore : opponentScore}</span>
           </div>
         </div>
         
-        {/* Результат раунда */}
-        {roundResult && bothChosen && (
-          <div className={`football-result ${roundResult === 'scored' ? 'football-result--scored' : 'football-result--blocked'}`}>
-            {roundResult === 'scored' ? '⚽ ГОЛ!' : '🛡️ Заблокировано! Защитник побеждает!'}
+        <div className="football-round-display">
+          <div className="football-round-badge">
+            <span className="football-round-current">{Math.min(Math.max(currentRound, 1), totalRounds)}</span>
+            <span className="football-round-separator">/</span>
+            <span className="football-round-total">{totalRounds}</span>
+          </div>
+          <span className="football-round-label">удар</span>
+        </div>
+        
+        <div className={`football-score-team ${isDefender ? 'football-score-team--you' : ''}`}>
+          <div className="football-score-team-badge">🧤</div>
+          <div className="football-score-team-info">
+            <span className="football-score-team-name">{isDefender ? 'Вы (Защита)' : 'Соперник (Защита)'}</span>
+            <span className="football-score-team-score">{isDefender ? opponentScore : playerScore}</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Футбольное поле с воротами */}
+      <div className="football-field-wrapper">
+        <div className="football-goal-area">
+          {/* Сетка ворот */}
+          <div className="football-net"></div>
+          
+          {/* Штанги */}
+          <div className="football-post football-post--left"></div>
+          <div className="football-post football-post--right"></div>
+          <div className="football-crossbar"></div>
+          
+          {/* Зоны ворот */}
+          {positions.map((pos) => (
+            <button
+              key={pos.id}
+              className={`football-zone ${hoveredZone === pos.id ? 'football-zone--hover' : ''} ${playerAttack === pos.id && bothChosen ? 'football-zone--attacked' : ''} ${opponentDefense === pos.id && bothChosen ? 'football-zone--defended' : ''}`}
+              style={{
+                left: `${pos.x}%`,
+                top: `${pos.y}%`,
+              }}
+              onClick={() => isAttacker ? handleAttack(pos.id) : handleDefense(pos.id)}
+              onMouseEnter={() => setHoveredZone(pos.id)}
+              onMouseLeave={() => setHoveredZone(null)}
+              disabled={!isPlayerTurn || isWaiting || isBlocked || (isAttacker && playerAttack !== null) || (isDefender && opponentDefense !== null)}
+            >
+              <span className="football-zone-icon">{pos.emoji}</span>
+              <span className="football-zone-label">{pos.shortLabel}</span>
+            </button>
+          ))}
+          
+          {/* Вратарь с анимацией */}
+          {goalkeeperPosition && showAnimation && (
+            <div 
+              className="football-goalkeeper-sprite"
+              style={{
+                left: `${goalkeeperPosition.x}%`,
+                top: `${goalkeeperPosition.y}%`,
+              }}
+            >
+              <div className="football-goalkeeper-body">🧤</div>
+            </div>
+          )}
+          
+          {/* Мяч с анимацией */}
+          {ballPosition && showAnimation && (
+            <div 
+              className={`football-ball-sprite ${roundResult === 'scored' ? 'football-ball-sprite--goal' : 'football-ball-sprite--saved'}`}
+              style={{
+                left: `${ballPosition.x}%`,
+                top: `${ballPosition.y}%`,
+              }}
+            >
+              ⚽
+            </div>
+          )}
+        </div>
+        
+        {/* Газон */}
+        <div className="football-grass"></div>
+      </div>
+      
+      {/* Результат раунда */}
+      {roundResult && bothChosen && (
+        <div className={`football-result-banner ${roundResult === 'scored' ? 'football-result-banner--goal' : 'football-result-banner--save'}`}>
+          {roundResult === 'scored' ? (
+            <>
+              <span className="football-result-icon">⚽</span>
+              <span className="football-result-text">ГОООЛ!</span>
+            </>
+          ) : (
+            <>
+              <span className="football-result-icon">🧤</span>
+              <span className="football-result-text">СЕЙВ! Защитник побеждает!</span>
+            </>
+          )}
+        </div>
+      )}
+      
+      {/* Инструкции */}
+      <div className="football-instructions">
+        {isAttacker && isPlayerTurn && !isWaiting && !isBlocked && playerAttack === null && (
+          <div className="football-instruction-card">
+            <span className="football-instruction-icon">⚽</span>
+            <span className="football-instruction-text">Выберите угол ворот для удара</span>
+          </div>
+        )}
+        
+        {isDefender && isPlayerTurn && !isWaiting && !isBlocked && opponentDefense === null && (
+          <div className="football-instruction-card">
+            <span className="football-instruction-icon">🧤</span>
+            <span className="football-instruction-text">Выберите угол для прыжка вратаря</span>
+          </div>
+        )}
+        
+        {((isAttacker && playerAttack !== null && !bothChosen) || (isDefender && opponentDefense !== null && !bothChosen)) && (
+          <div className="football-instruction-card football-instruction-card--waiting">
+            <div className="football-waiting-spinner"></div>
+            <span className="football-instruction-text">Ожидание соперника...</span>
           </div>
         )}
       </div>
-      
-      {/* Инструкции */}
-      {isAttacker && isPlayerTurn && !isWaiting && !isBlocked && playerAttack === null && (
-        <div className="football-instruction">
-          Выберите зону ворот для атаки (соперник не видит ваш выбор)
-        </div>
-      )}
-      
-      {isDefender && isPlayerTurn && !isWaiting && !isBlocked && opponentDefense === null && (
-        <div className="football-instruction">
-          Выберите зону ворот для защиты (соперник не видит ваш выбор)
-        </div>
-      )}
-      
-      {((isAttacker && playerAttack !== null && !bothChosen) || (isDefender && opponentDefense !== null && !bothChosen)) && (
-        <div className="football-instruction">Ожидание выбора соперника...</div>
-      )}
     </div>
   );
 }

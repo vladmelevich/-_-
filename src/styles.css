@@ -1990,3 +1990,2087 @@
 .game-search-results::-webkit-scrollbar-thumb:hover {
   background: rgba(141, 92, 255, 0.7);
 }
+
+/* ========================================
+   НОВЫЕ СТИЛИ ИГР - BLACKJACK GAME
+   ======================================== */
+
+.blackjack-game {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.blackjack-table-bg {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(34, 139, 34, 0.3) 0%, transparent 50%),
+    linear-gradient(180deg, #1a472a 0%, #0d2818 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.blackjack-table-bg::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 3px solid rgba(218, 165, 32, 0.4);
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+.blackjack-scoreboard {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 16px;
+  border: 1px solid rgba(218, 165, 32, 0.3);
+}
+
+.blackjack-score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.blackjack-score-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.blackjack-score-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffd700;
+  text-shadow: 0 2px 10px rgba(255, 215, 0, 0.5);
+}
+
+.blackjack-score-item--round .blackjack-score-value {
+  color: #fff;
+  font-size: 20px;
+}
+
+.blackjack-tied-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+  border: 2px solid #ffd700;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffd700;
+  animation: pulse-gold 2s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.5); }
+}
+
+.blackjack-tied-icon {
+  font-size: 24px;
+}
+
+.blackjack-table {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.blackjack-hand {
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.blackjack-hand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.blackjack-hand-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.blackjack-total {
+  font-size: 24px;
+  font-weight: 800;
+  color: #22f56a;
+  text-shadow: 0 2px 10px rgba(34, 245, 106, 0.5);
+}
+
+.blackjack-total--bust {
+  color: #ff4444;
+  text-shadow: 0 2px 10px rgba(255, 68, 68, 0.5);
+}
+
+.blackjack-total--blackjack {
+  color: #ffd700;
+  text-shadow: 0 2px 10px rgba(255, 215, 0, 0.5);
+  animation: pulse-gold 1s ease-in-out infinite;
+}
+
+.blackjack-bust-label,
+.blackjack-blackjack-label {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.blackjack-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 140px;
+}
+
+/* Красивые карты */
+.blackjack-card {
+  width: 90px;
+  height: 130px;
+  perspective: 1000px;
+  animation: cardDeal 0.5s ease-out;
+}
+
+.blackjack-card--new {
+  animation: cardDealNew 0.5s ease-out;
+}
+
+@keyframes cardDeal {
+  from {
+    transform: translateY(-50px) rotateY(180deg) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cardDealNew {
+  from {
+    transform: translateX(100px) rotateZ(30deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) rotateZ(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.blackjack-card__inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.blackjack-card__front {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  background: linear-gradient(145deg, #ffffff 0%, #f5f5f5 100%);
+  border-radius: 8px;
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.blackjack-card--red {
+  color: #dc143c;
+}
+
+.blackjack-card--black {
+  color: #1a1a2e;
+}
+
+.blackjack-card__corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.blackjack-card__corner--top {
+  top: 6px;
+  left: 8px;
+}
+
+.blackjack-card__corner--bottom {
+  bottom: 6px;
+  right: 8px;
+  transform: rotate(180deg);
+}
+
+.blackjack-card__rank {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.blackjack-card__suit-small {
+  font-size: 14px;
+}
+
+.blackjack-card__center-suit {
+  font-size: 42px;
+}
+
+.blackjack-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.blackjack-divider-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(218, 165, 32, 0.5), transparent);
+}
+
+.blackjack-divider-chip {
+  font-size: 24px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+  border: 2px solid rgba(218, 165, 32, 0.5);
+}
+
+.blackjack-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.blackjack-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.blackjack-btn--hit {
+  background: linear-gradient(135deg, #22f56a 0%, #1dd65a 100%);
+  color: #fff;
+  box-shadow: 0 8px 25px rgba(34, 245, 106, 0.4);
+}
+
+.blackjack-btn--hit:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(34, 245, 106, 0.5);
+}
+
+.blackjack-btn--stand {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+  color: #fff;
+  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+}
+
+.blackjack-btn--stand:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(255, 107, 107, 0.5);
+}
+
+.blackjack-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.blackjack-btn-icon {
+  font-size: 20px;
+}
+
+.blackjack-waiting-indicator {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  margin-top: 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+}
+
+.blackjack-waiting-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffd700;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   COINFLIP GAME - НОВЫЙ ДИЗАЙН
+   ======================================== */
+
+.coinflip-game-container {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  padding: 24px;
+}
+
+.coinflip-bg-pattern {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(255, 215, 0, 0.1) 0%, transparent 30%),
+    radial-gradient(circle at 80% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 30%),
+    linear-gradient(180deg, rgba(26, 15, 46, 0.9) 0%, rgba(13, 8, 23, 0.95) 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.coinflip-scoreboard {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.coinflip-score-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.coinflip-score-icon {
+  font-size: 32px;
+}
+
+.coinflip-score-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.coinflip-score-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.coinflip-score-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffd700;
+}
+
+.coinflip-score-card--round {
+  flex-direction: column;
+  padding: 12px 24px;
+}
+
+.coinflip-round-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.coinflip-round-current {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.coinflip-round-divider {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.coinflip-round-total {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.coinflip-round-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.coinflip-arena {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.coinflip-waiting-state {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+}
+
+.coinflip-waiting-pulse {
+  width: 12px;
+  height: 12px;
+  background: #ffd700;
+  border-radius: 50%;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.coinflip-choice-section {
+  width: 100%;
+  text-align: center;
+}
+
+.coinflip-choice-title {
+  margin: 0 0 24px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.coinflip-choices-grid {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.coinflip-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.coinflip-choice-btn:hover:not(:disabled) {
+  transform: translateY(-8px);
+  border-color: #ffd700;
+  box-shadow: 0 20px 40px rgba(255, 215, 0, 0.2);
+}
+
+.coinflip-choice-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coinflip-choice-btn--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.coinflip-choice-coin {
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffd700 0%, #ffaa00 100%);
+  box-shadow: 
+    0 8px 30px rgba(255, 215, 0, 0.4),
+    inset 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+
+.coinflip-choice-symbol {
+  font-size: 48px;
+}
+
+.coinflip-choice-label {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* 3D Монета */
+.coinflip-result-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.coinflip-3d-coin {
+  width: 160px;
+  height: 160px;
+  perspective: 1000px;
+}
+
+.coinflip-3d-coin-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease-out;
+}
+
+.coinflip-3d-coin--spinning .coinflip-3d-coin-inner {
+  animation: coin-spin-3d 2s ease-in-out;
+}
+
+@keyframes coin-spin-3d {
+  0% { transform: rotateY(0deg) rotateX(0deg); }
+  25% { transform: rotateY(720deg) rotateX(15deg); }
+  50% { transform: rotateY(1440deg) rotateX(-15deg); }
+  75% { transform: rotateY(2160deg) rotateX(10deg); }
+  100% { transform: rotateY(2880deg) rotateX(0deg); }
+}
+
+.coinflip-3d-coin--heads .coinflip-3d-coin-inner {
+  transform: rotateY(0deg);
+}
+
+.coinflip-3d-coin--tails .coinflip-3d-coin-inner {
+  transform: rotateY(180deg);
+}
+
+.coinflip-3d-coin-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coinflip-3d-coin-face--heads {
+  background: linear-gradient(145deg, #ffd700 0%, #daa520 50%, #ffd700 100%);
+  box-shadow: 
+    0 10px 40px rgba(255, 215, 0, 0.5),
+    inset 0 -5px 20px rgba(0, 0, 0, 0.2),
+    inset 0 5px 20px rgba(255, 255, 255, 0.3);
+}
+
+.coinflip-3d-coin-face--tails {
+  background: linear-gradient(145deg, #c0c0c0 0%, #a8a8a8 50%, #c0c0c0 100%);
+  box-shadow: 
+    0 10px 40px rgba(192, 192, 192, 0.5),
+    inset 0 -5px 20px rgba(0, 0, 0, 0.2),
+    inset 0 5px 20px rgba(255, 255, 255, 0.3);
+  transform: rotateY(180deg);
+}
+
+.coinflip-coin-design {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.coinflip-coin-icon {
+  font-size: 64px;
+}
+
+.coinflip-coin-text {
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.6);
+  letter-spacing: 2px;
+}
+
+.coinflip-result-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.coinflip-result-text,
+.coinflip-teacher-choice {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.coinflip-round-result {
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.coinflip-round-result--win {
+  background: rgba(34, 245, 106, 0.2);
+  color: #22f56a;
+  border: 2px solid #22f56a;
+}
+
+.coinflip-round-result--lose {
+  background: rgba(255, 68, 68, 0.2);
+  color: #ff4444;
+  border: 2px solid #ff4444;
+}
+
+/* ========================================
+   DICE AMERICAN GAME - НОВЫЙ ДИЗАЙН
+   ======================================== */
+
+.dice-american-game {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  padding: 24px;
+}
+
+.dice-american-bg {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 30% 20%, rgba(139, 69, 19, 0.2) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 80%, rgba(139, 69, 19, 0.2) 0%, transparent 40%),
+    linear-gradient(180deg, #2d1f14 0%, #1a120b 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.dice-american-header {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 24px;
+}
+
+.dice-american-score-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dice-american-score {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dice-american-score-emoji {
+  font-size: 28px;
+}
+
+.dice-american-score-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dice-american-score-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffd700;
+}
+
+.dice-american-round-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dice-american-round-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+}
+
+.dice-american-round-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dice-american-notification {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.dice-american-notification--tie {
+  background: rgba(255, 215, 0, 0.15);
+  border: 2px solid #ffd700;
+  color: #ffd700;
+}
+
+.dice-american-notification--win {
+  background: rgba(34, 245, 106, 0.15);
+  border: 2px solid #22f56a;
+  color: #22f56a;
+}
+
+.dice-american-notification--lose {
+  background: rgba(255, 68, 68, 0.15);
+  border: 2px solid #ff4444;
+  color: #ff4444;
+}
+
+.dice-american-notification-icon {
+  font-size: 24px;
+}
+
+.dice-american-arena {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.dice-american-player-card {
+  flex: 1;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.dice-american-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dice-american-player-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dice-american-ready-badge {
+  padding: 6px 12px;
+  background: rgba(34, 245, 106, 0.2);
+  border: 1px solid #22f56a;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #22f56a;
+}
+
+.dice-american-dice-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* 3D Кубик */
+.dice-3d {
+  width: 70px;
+  height: 70px;
+  perspective: 500px;
+}
+
+.dice-3d--rolling {
+  animation: dice-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes dice-shake {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+.dice-3d-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+}
+
+.dice-3d-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #ffffff 0%, #e8e8e8 100%);
+  border-radius: 12px;
+  box-shadow: 
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 2px 5px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.dice-3d-dots {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.dice-3d-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle, #1a1a1a 0%, #333 100%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.dice-3d-question {
+  font-size: 36px;
+  font-weight: 800;
+  color: #666;
+}
+
+.dice-american-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dice-american-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.dice-american-stat-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dice-american-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.dice-american-stat-value--good {
+  color: #22f56a;
+}
+
+.dice-american-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.dice-american-vs span {
+  font-size: 24px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.dice-american-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  margin-top: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dice-american-status--result {
+  color: #ffd700;
+}
+
+.dice-american-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffd700;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   DICE SUM GAME - НОВЫЙ ДИЗАЙН
+   ======================================== */
+
+.dice-sum-game {
+  position: relative;
+  width: 100%;
+  min-height: 500px;
+  padding: 24px;
+}
+
+.dice-sum-bg {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    linear-gradient(180deg, #1e1b4b 0%, #0f0a24 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.dice-sum-scoreboard {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.dice-sum-score-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.dice-sum-score-card--winner {
+  border-color: #22f56a;
+  box-shadow: 0 0 30px rgba(34, 245, 106, 0.3);
+}
+
+.dice-sum-score-avatar {
+  font-size: 32px;
+}
+
+.dice-sum-score-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.dice-sum-score-name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dice-sum-score-points {
+  font-size: 28px;
+  font-weight: 800;
+  color: #a78bfa;
+}
+
+.dice-sum-round-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dice-sum-round-circle {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.dice-sum-round-number {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.dice-sum-round-total {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dice-sum-round-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.dice-sum-arena {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.dice-sum-player-block {
+  flex: 1;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.5s ease;
+}
+
+.dice-sum-player-block--winner {
+  border-color: #22f56a;
+  background: rgba(34, 245, 106, 0.1);
+  box-shadow: 0 0 40px rgba(34, 245, 106, 0.2);
+}
+
+.dice-sum-player-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dice-sum-player-icon {
+  font-size: 24px;
+}
+
+.dice-sum-dice-container {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* Красивый кубик DiceSum */
+.dice-sum-cube {
+  width: 70px;
+  height: 70px;
+  perspective: 500px;
+}
+
+.dice-sum-cube--rolling {
+  animation: cube-bounce 0.4s ease-in-out infinite;
+}
+
+@keyframes cube-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(10deg); }
+}
+
+.dice-sum-cube--highlight .dice-sum-cube-face {
+  background: linear-gradient(145deg, #22f56a 0%, #1dd65a 100%);
+  box-shadow: 0 8px 30px rgba(34, 245, 106, 0.5);
+}
+
+.dice-sum-cube--highlight .dice-sum-cube-dot {
+  background: radial-gradient(circle, #fff 0%, #e8e8e8 100%);
+}
+
+.dice-sum-cube-face {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #a78bfa 0%, #8b5cf6 100%);
+  border-radius: 14px;
+  position: relative;
+  box-shadow: 
+    0 8px 25px rgba(167, 139, 250, 0.4),
+    inset 0 2px 8px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.dice-sum-cube-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dice-sum-cube-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle, #fff 0%, #e8e8e8 100%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: dot-pop 0.3s ease-out;
+}
+
+@keyframes dot-pop {
+  from { transform: translate(-50%, -50%) scale(0); }
+  to { transform: translate(-50%, -50%) scale(1); }
+}
+
+.dice-sum-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+}
+
+.dice-sum-total--winner {
+  background: rgba(34, 245, 106, 0.2);
+}
+
+.dice-sum-total-label {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dice-sum-total-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.dice-sum-total--winner .dice-sum-total-value {
+  color: #22f56a;
+}
+
+.dice-sum-versus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 16px;
+}
+
+.dice-sum-versus-badge {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dice-sum-versus-badge--rolling {
+  animation: versus-pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes versus-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.dice-sum-result-badge {
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dice-sum-result-badge--win {
+  background: rgba(34, 245, 106, 0.2);
+  color: #22f56a;
+  border: 1px solid #22f56a;
+}
+
+.dice-sum-result-badge--lose {
+  background: rgba(255, 68, 68, 0.2);
+  color: #ff4444;
+  border: 1px solid #ff4444;
+}
+
+.dice-sum-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  margin-top: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dice-sum-status-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   FOOTBALL GAME - НОВЫЙ ДИЗАЙН
+   ======================================== */
+
+.football-game-container {
+  position: relative;
+  width: 100%;
+  min-height: 550px;
+  padding: 24px;
+}
+
+.football-stadium-bg {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 50% 100%, rgba(34, 197, 94, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #1a2a1a 0%, #0d150d 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.football-scoreboard {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+}
+
+.football-score-team {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 2px solid transparent;
+}
+
+.football-score-team--you {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.football-score-team-badge {
+  font-size: 32px;
+}
+
+.football-score-team-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.football-score-team-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.football-score-team-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: #22c55e;
+}
+
+.football-round-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.football-round-badge {
+  display: flex;
+  align-items: baseline;
+}
+
+.football-round-current {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.football-round-separator {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 4px;
+}
+
+.football-round-total {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.football-round-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.football-field-wrapper {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 24px;
+}
+
+.football-goal-area {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  aspect-ratio: 16 / 10;
+  background: 
+    linear-gradient(180deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.2) 100%);
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+/* Сетка ворот */
+.football-net {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 25px 25px;
+  pointer-events: none;
+}
+
+/* Штанги */
+.football-post {
+  position: absolute;
+  width: 8px;
+  height: 100%;
+  background: linear-gradient(180deg, #fff 0%, #d4d4d4 100%);
+  box-shadow: 
+    2px 0 10px rgba(0, 0, 0, 0.3),
+    inset -2px 0 4px rgba(0, 0, 0, 0.2);
+}
+
+.football-post--left {
+  left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.football-post--right {
+  right: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.football-crossbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(90deg, #fff 0%, #d4d4d4 50%, #fff 100%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  border-radius: 4px 4px 0 0;
+}
+
+/* Зоны ворот */
+.football-zone {
+  position: absolute;
+  width: 80px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  z-index: 10;
+}
+
+.football-zone:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: #22c55e;
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+}
+
+.football-zone--hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.football-zone--attacked {
+  background: rgba(34, 197, 94, 0.4) !important;
+  border: 2px solid #22c55e !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.6);
+}
+
+.football-zone--defended {
+  background: rgba(239, 68, 68, 0.4) !important;
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.6);
+}
+
+.football-zone:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.football-zone-icon {
+  font-size: 20px;
+}
+
+.football-zone-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Вратарь */
+.football-goalkeeper-sprite {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  font-size: 50px;
+  animation: goalkeeper-dive 0.8s ease-out;
+  pointer-events: none;
+}
+
+@keyframes goalkeeper-dive {
+  0% {
+    transform: translate(-50%, 200%) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -70%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.football-goalkeeper-body {
+  animation: goalkeeper-shake 0.3s ease-in-out 0.8s;
+}
+
+@keyframes goalkeeper-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+
+/* Мяч */
+.football-ball-sprite {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 14;
+  font-size: 40px;
+  pointer-events: none;
+}
+
+.football-ball-sprite--goal {
+  animation: ball-goal 1.2s ease-out;
+}
+
+@keyframes ball-goal {
+  0% {
+    transform: translate(-50%, 300%) scale(0.3);
+    opacity: 0;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.football-ball-sprite--saved {
+  animation: ball-saved 1.2s ease-out;
+}
+
+@keyframes ball-saved {
+  0% {
+    transform: translate(-50%, 300%) scale(0.3);
+    opacity: 0;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(0.8) rotate(180deg);
+  }
+  100% {
+    transform: translate(-50%, 100%) scale(0.5) rotate(360deg);
+    opacity: 0.5;
+  }
+}
+
+.football-grass {
+  height: 30px;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 0 0 16px 16px;
+}
+
+/* Результат */
+.football-result-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+  font-size: 24px;
+  font-weight: 800;
+  animation: result-pop 0.5s ease-out;
+}
+
+@keyframes result-pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.football-result-banner--goal {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.1) 100%);
+  border: 2px solid #22c55e;
+  color: #22c55e;
+}
+
+.football-result-banner--save {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.1) 100%);
+  border: 2px solid #ef4444;
+  color: #ef4444;
+}
+
+.football-result-icon {
+  font-size: 36px;
+}
+
+.football-instructions {
+  position: relative;
+  z-index: 1;
+}
+
+.football-instruction-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+}
+
+.football-instruction-card--waiting {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.football-instruction-icon {
+  font-size: 24px;
+}
+
+.football-waiting-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ========================================
+   NVUTI GAME - НОВЫЙ ДИЗАЙН
+   ======================================== */
+
+.nvuti-game-container {
+  position: relative;
+  width: 100%;
+  min-height: 550px;
+  padding: 24px;
+}
+
+.nvuti-bg-effect {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 30% 30%, rgba(236, 72, 153, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 70%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+    linear-gradient(180deg, #1f1135 0%, #0d0618 100%);
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.nvuti-scoreboard {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.nvuti-score-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nvuti-score-icon {
+  font-size: 32px;
+}
+
+.nvuti-score-data {
+  display: flex;
+  flex-direction: column;
+}
+
+.nvuti-score-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nvuti-score-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ec4899;
+}
+
+.nvuti-round-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nvuti-round-circle {
+  display: flex;
+  align-items: baseline;
+}
+
+.nvuti-round-num {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.nvuti-round-sep {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 4px;
+}
+
+.nvuti-round-total {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.nvuti-round-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.nvuti-game-arena {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.nvuti-waiting-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.nvuti-waiting-pulse {
+  width: 12px;
+  height: 12px;
+  background: #ec4899;
+  border-radius: 50%;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.nvuti-choice-section {
+  width: 100%;
+  text-align: center;
+}
+
+.nvuti-choice-title {
+  margin: 0 0 24px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nvuti-choice-cards {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.nvuti-choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 48px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.nvuti-choice-card:hover:not(:disabled) {
+  transform: translateY(-8px);
+}
+
+.nvuti-choice-card--low:hover:not(:disabled) {
+  border-color: #3b82f6;
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.nvuti-choice-card--high:hover:not(:disabled) {
+  border-color: #ec4899;
+  box-shadow: 0 20px 40px rgba(236, 72, 153, 0.3);
+  background: rgba(236, 72, 153, 0.1);
+}
+
+.nvuti-choice-card:disabled,
+.nvuti-choice-card--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.nvuti-choice-range-visual {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.nvuti-range-bar {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.nvuti-range-bar--low .nvuti-range-fill {
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+}
+
+.nvuti-range-bar--high .nvuti-range-fill {
+  width: 50%;
+  height: 100%;
+  margin-left: 50%;
+  background: linear-gradient(90deg, #ec4899 0%, #f472b6 100%);
+}
+
+.nvuti-choice-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.nvuti-choice-from,
+.nvuti-choice-to {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.nvuti-choice-separator {
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.nvuti-choice-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.nvuti-choice-percent {
+  font-size: 14px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nvuti-selection-display {
+  width: 100%;
+}
+
+.nvuti-selected-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.nvuti-selected-icon {
+  font-size: 24px;
+}
+
+/* Дисплей числа */
+.nvuti-number-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.nvuti-number-frame {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nvuti-number-glow {
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, transparent 70%);
+  filter: blur(20px);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.nvuti-number-value {
+  position: relative;
+  font-size: 72px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(236, 72, 153, 0.5);
+  z-index: 1;
+}
+
+.nvuti-number-value--spinning {
+  animation: number-spin 0.1s linear infinite;
+}
+
+@keyframes number-spin {
+  from { transform: translateY(-2px); }
+  to { transform: translateY(2px); }
+}
+
+.nvuti-number-value--win {
+  color: #22f56a;
+  text-shadow: 0 0 30px rgba(34, 245, 106, 0.5);
+}
+
+.nvuti-number-value--lose {
+  color: #ff4444;
+  text-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
+}
+
+.nvuti-number-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Результат */
+.nvuti-result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 48px;
+  border-radius: 16px;
+  animation: result-slide 0.5s ease-out;
+}
+
+@keyframes result-slide {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.nvuti-result-card--win {
+  background: linear-gradient(135deg, rgba(34, 245, 106, 0.2) 0%, rgba(34, 245, 106, 0.05) 100%);
+  border: 2px solid #22f56a;
+}
+
+.nvuti-result-card--lose {
+  background: linear-gradient(135deg, rgba(255, 68, 68, 0.2) 0%, rgba(255, 68, 68, 0.05) 100%);
+  border: 2px solid #ff4444;
+}
+
+.nvuti-result-icon {
+  font-size: 48px;
+}
+
+.nvuti-result-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nvuti-result-details {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Прогресс-бар */
+.nvuti-progress-section {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 500px;
+  margin: 24px auto 0;
+}
+
+.nvuti-progress-bar {
+  position: relative;
+  display: flex;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.nvuti-progress-fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.nvuti-progress-fill--low {
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+}
+
+.nvuti-progress-fill--high {
+  background: linear-gradient(90deg, #ec4899 0%, #f472b6 100%);
+}
+
+.nvuti-progress-marker {
+  position: absolute;
+  top: -8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  animation: marker-drop 0.5s ease-out;
+}
+
+@keyframes marker-drop {
+  from { top: -30px; opacity: 0; }
+  to { top: -8px; opacity: 1; }
+}
+
+.nvuti-marker-line {
+  width: 3px;
+  height: 56px;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.nvuti-marker-value {
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: #fff;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1f1135;
+}

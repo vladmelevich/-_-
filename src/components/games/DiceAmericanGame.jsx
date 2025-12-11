@@ -2,8 +2,46 @@ import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { log, logError, logAction, validateAndLog } from '../../utils/devMode.js';
 
+// Компонент 3D кубика с точками
+const Dice3D = ({ value, isRolling, delay = 0 }) => {
+  const dots = {
+    1: [[50, 50]],
+    2: [[25, 25], [75, 75]],
+    3: [[25, 25], [50, 50], [75, 75]],
+    4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+    5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+    6: [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]]
+  };
+  
+  const currentDots = value && value !== '?' ? dots[value] || [] : [];
+  
+  return (
+    <div 
+      className={`dice-3d ${isRolling ? 'dice-3d--rolling' : ''}`}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="dice-3d-inner">
+        <div className="dice-3d-face dice-3d-face--front">
+          {value === '?' ? (
+            <span className="dice-3d-question">?</span>
+          ) : (
+            <div className="dice-3d-dots">
+              {currentDots.map((dot, i) => (
+                <div 
+                  key={i} 
+                  className="dice-3d-dot"
+                  style={{ left: `${dot[0]}%`, top: `${dot[1]}%` }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
-  // Валидация пропсов
   useEffect(() => {
     const validation = validateAndLog(
       { rounds, isBotGame },
@@ -35,7 +73,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
   const [playerReady, setPlayerReady] = useState(false);
   const [opponentReady, setOpponentReady] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [gameOverWinner, setGameOverWinner] = useState(null); // true = игрок выиграл, false = игрок проиграл
+  const [gameOverWinner, setGameOverWinner] = useState(null);
   const [roundTied, setRoundTied] = useState(false);
   const [isProcessingRerolls, setIsProcessingRerolls] = useState(false);
   const processingRef = useRef(false);
@@ -50,11 +88,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     return null;
   };
 
-  // ========== МОДУЛЬ ПОДСЧЕТА ОЧКОВ В DICE AMERICAN ==========
-  // Функция calculatePoints вычисляет очки на основе комбинации кубиков:
-  // - 'three-of-a-kind' - три одинаковых кубика (самая сильная комбинация)
-  // - число (1-6) - пара одинаковых кубиков, очки равны значению одиночного кубика
-  // - 0 - все кубики разные, нет комбинации
   const calculatePoints = (dice) => {
     const counts = {};
     dice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
@@ -67,7 +100,12 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     }
     return 0;
   };
-  // ========== КОНЕЦ МОДУЛЯ ПОДСЧЕТА ОЧКОВ ==========
+
+  const getPointsLabel = (points) => {
+    if (points === 'three-of-a-kind') return '🎲 Три одинаковых!';
+    if (points === 0) return 'Нет комбинации';
+    return `Пара + ${points}`;
+  };
 
   const canReroll = (dice) => {
     if (dice[0] === 0 || dice.length !== 3) return false;
@@ -109,7 +147,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       
       if (playerSpecial === 'lose-all' || opponentSpecial === 'win-all') {
         setGameOver(true);
-        setGameOverWinner(false); // Игрок проиграл
+        setGameOverWinner(false);
         setIsBlocked(true);
         processingRef.current = false;
         setTimeout(() => {
@@ -120,7 +158,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       
       if (playerSpecial === 'win-all' || opponentSpecial === 'lose-all') {
         setGameOver(true);
-        setGameOverWinner(true); // Игрок выиграл
+        setGameOverWinner(true);
         setIsBlocked(true);
         processingRef.current = false;
         setTimeout(() => {
@@ -135,17 +173,14 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       setPlayerPoints(typeof playerPts === 'number' ? playerPts : 0);
       setOpponentPoints(typeof opponentPts === 'number' ? opponentPts : 0);
       
-        // Автоматические перебросы для игрока
-        setTimeout(() => {
-          if (!isBlocked) {
-            // Показываем текущие кубики перед перебросами
-            setPlayerDice(playerRolls);
-            setOpponentDice(opponentRolls);
-            processPlayerRerolls(playerRolls, playerPts, 2);
-          }
-        }, 2000);
+      setTimeout(() => {
+        if (!isBlocked) {
+          setPlayerDice(playerRolls);
+          setOpponentDice(opponentRolls);
+          processPlayerRerolls(playerRolls, playerPts, 2);
+        }
+      }, 2000);
       
-      // Симуляция перебросов соперника (бот)
       if (isBotGame) {
         setTimeout(() => {
           if (isBlocked) {
@@ -160,7 +195,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             if (isBlocked) return;
             
             if (oppRerolls > 0 && canReroll(oppDice)) {
-              // Показываем анимацию переброса
               setOpponentDice(['?', '?', '?']);
               setIsRolling(true);
               
@@ -258,7 +292,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     setIsProcessingRerolls(true);
     
-    // Показываем анимацию переброса
     setTimeout(() => {
       if (isBlocked) {
         setIsProcessingRerolls(false);
@@ -267,7 +300,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       }
       
       setIsRolling(true);
-      // Показываем "?" во время переброса
       setPlayerDice(['?', '?', '?']);
       
       setTimeout(() => {
@@ -325,13 +357,11 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     const playerThree = playerPts === 'three-of-a-kind';
     const opponentThree = opponentPts === 'three-of-a-kind';
     
-    // three-of-a-kind всегда побеждает пару или 0
     if (playerThree && !opponentThree) {
       roundWinner = true;
     } else if (opponentThree && !playerThree) {
       roundWinner = false;
     } else if (playerThree && opponentThree) {
-      // Если оба имеют three-of-a-kind, сравниваем сумму
       const playerSum = playerDice.reduce((a, b) => a + b, 0);
       const opponentSum = opponentDice.reduce((a, b) => a + b, 0);
       if (playerSum > opponentSum) {
@@ -340,7 +370,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
         roundWinner = false;
       }
     } else if (typeof playerPts === 'number' && typeof opponentPts === 'number') {
-      // Сравниваем пары или 0
       if (playerPts > opponentPts) {
         roundWinner = true;
       } else if (opponentPts > playerPts) {
@@ -352,21 +381,14 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     logAction('roundFinished', { roundWinner, playerPts, opponentPts, currentRound: roundNumber });
     
-    // ========== МОДУЛЬ ОБНОВЛЕНИЯ СЧЕТА ИГРОКОВ ==========
-    // Обновляем счет только один раз (только если не ничья)
-    // playerScore и opponentScore - это счет игрока и соперника за всю игру
-    // roundWinner: true = игрок выиграл, false = соперник выиграл, null = ничья
     if (roundWinner === null) {
-      // Ничья - показываем сообщение и переигрываем раунд
       setRoundTied(true);
     } else if (roundWinner === true) {
       setPlayerScore(prev => prev + 1);
     } else if (roundWinner === false) {
       setOpponentScore(prev => prev + 1);
     }
-    // ========== КОНЕЦ МОДУЛЯ ОБНОВЛЕНИЯ СЧЕТА ==========
     
-    // Проверяем условия завершения игры и переход к следующему раунду с задержкой, используя функциональные обновления
     setTimeout(() => {
       if (isBlocked) {
         processingRef.current = false;
@@ -376,8 +398,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       
       setPlayerScore(prevPlayer => {
         setOpponentScore(prevOpponent => {
-          // ========== МОДУЛЬ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ИГРЫ ==========
-          // Проверяем, достиг ли кто-то половины раундов (победа досрочно)
           const halfRounds = Math.ceil(rounds / 2);
           
           if (prevPlayer > halfRounds) {
@@ -399,11 +419,8 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             }, 2000);
             return prevOpponent;
           }
-          // ========== КОНЕЦ МОДУЛЯ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ==========
           
-          // Переход к следующему раунду или переигровка при ничьей
           if (roundWinner === null) {
-            // Ничья - переигрываем раунд (не увеличиваем счетчик)
             setTimeout(() => {
               if (isBlocked) {
                 processingRef.current = false;
@@ -414,8 +431,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
               if (onRoundFinish) {
                 onRoundFinish(roundNumber, null);
               }
-              // Не увеличиваем currentRound - раунд будет переигран
-              // Сбрасываем состояние для переигровки
               setPlayerDice([0, 0, 0]);
               setOpponentDice([0, 0, 0]);
               setPlayerPoints(0);
@@ -430,7 +445,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
               checkRoundFinishCalledRef.current = false;
             }, 2000);
           } else if (roundNumber < rounds) {
-            // Есть победитель и есть еще раунды - переходим к следующему
             setTimeout(() => {
               if (isBlocked) {
                 processingRef.current = false;
@@ -440,7 +454,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
               if (onRoundFinish) {
                 onRoundFinish(roundNumber, roundWinner);
               }
-              // Сбрасываем состояние перед следующим раундом
               setPlayerDice([0, 0, 0]);
               setOpponentDice([0, 0, 0]);
               setPlayerPoints(0);
@@ -478,7 +491,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     }
   }, [playerReady, opponentReady, isBlocked, isProcessingRerolls, currentRound, rounds]);
 
-  // Сброс кубиков при новом раунде
   useEffect(() => {
     if (currentRound <= rounds && !isBlocked && rounds > 0 && currentRound >= 1) {
       setPlayerDice([0, 0, 0]);
@@ -499,7 +511,6 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     }
   }, [currentRound, rounds, isBlocked]);
   
-  // Автоматический запуск раунда
   useEffect(() => {
     if (currentRound <= rounds && !isBlocked && playerDice[0] === 0 && rounds > 0 && !isRolling && !isProcessingRerolls && !processingRef.current && currentRound >= 1) {
       const timer = setTimeout(() => {
@@ -513,75 +524,121 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
 
   return (
     <div className="dice-american-game">
-      <div className="game-score">
-        <div className="score-item">
-          <span>Вы: {playerScore}</span>
-        </div>
-        <div className="score-item">
-          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
-        </div>
-        <div className="score-item">
-          <span>Соперник: {opponentScore}</span>
+      {/* Фоновый паттерн */}
+      <div className="dice-american-bg"></div>
+      
+      {/* Заголовок со счётом */}
+      <div className="dice-american-header">
+        <div className="dice-american-score-panel">
+          <div className="dice-american-score dice-american-score--player">
+            <span className="dice-american-score-emoji">🎲</span>
+            <span className="dice-american-score-label">Вы</span>
+            <span className="dice-american-score-value">{playerScore}</span>
+          </div>
+          <div className="dice-american-round-info">
+            <span className="dice-american-round-label">Раунд</span>
+            <span className="dice-american-round-value">{Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
+          </div>
+          <div className="dice-american-score dice-american-score--opponent">
+            <span className="dice-american-score-emoji">🤖</span>
+            <span className="dice-american-score-label">Соперник</span>
+            <span className="dice-american-score-value">{opponentScore}</span>
+          </div>
         </div>
       </div>
       
+      {/* Уведомления */}
       {roundTied && (
-        <div className="game-status" style={{ color: '#ffd700', fontWeight: 'bold' }}>
-          Ничья, раунд будет переигран
+        <div className="dice-american-notification dice-american-notification--tie">
+          <span className="dice-american-notification-icon">🤝</span>
+          <span>Ничья! Раунд переигрывается...</span>
         </div>
       )}
       
       {gameOver && (
-        <div className="game-over-message">
-          {gameOverWinner === true ? 'Вы выиграли все раунды!' : gameOverWinner === false ? 'Вы проиграли все раунды!' : (playerScore > opponentScore ? 'Вы выиграли все раунды!' : 'Вы проиграли все раунды!')}
+        <div className={`dice-american-notification ${gameOverWinner ? 'dice-american-notification--win' : 'dice-american-notification--lose'}`}>
+          <span className="dice-american-notification-icon">{gameOverWinner ? '🏆' : '💔'}</span>
+          <span>{gameOverWinner ? 'Вы выиграли все раунды!' : 'Вы проиграли все раунды!'}</span>
         </div>
       )}
       
-      <div className="dice-container">
-        <div className="dice-player">
-          <h3>Ваши кубики</h3>
-          <div className="dice-row">
+      {/* Игровое поле */}
+      <div className="dice-american-arena">
+        {/* Карточка игрока */}
+        <div className="dice-american-player-card dice-american-player-card--player">
+          <div className="dice-american-player-header">
+            <h3>🎯 Ваши кубики</h3>
+            {playerReady && (
+              <span className="dice-american-ready-badge">✓ Готов</span>
+            )}
+          </div>
+          <div className="dice-american-dice-row">
             {playerDice.map((dice, i) => (
-              <div key={i} className={`dice ${isRolling ? 'dice--rolling' : ''}`}>
-                {dice || '?'}
-              </div>
+              <Dice3D key={i} value={dice} isRolling={isRolling} delay={i * 100} />
             ))}
           </div>
-          <div className="dice-info">
-            <div>Очки: {typeof playerPoints === 'number' ? playerPoints : playerPoints === 'three-of-a-kind' ? 'Три одинаковых!' : playerPoints}</div>
-            <div>Перебросов: {playerRerolls}</div>
-            {playerReady && <div className="ready-indicator">✓ Готов</div>}
+          <div className="dice-american-stats">
+            <div className="dice-american-stat">
+              <span className="dice-american-stat-label">Комбинация</span>
+              <span className={`dice-american-stat-value ${playerPoints === 'three-of-a-kind' || (typeof playerPoints === 'number' && playerPoints > 0) ? 'dice-american-stat-value--good' : ''}`}>
+                {getPointsLabel(calculatePoints(playerDice))}
+              </span>
+            </div>
+            <div className="dice-american-stat">
+              <span className="dice-american-stat-label">Перебросов</span>
+              <span className="dice-american-stat-value">{playerRerolls}</span>
+            </div>
           </div>
         </div>
         
-        <div className="dice-player">
-          <h3>Кубики соперника</h3>
-          <div className="dice-row">
+        {/* Разделитель VS */}
+        <div className="dice-american-vs">
+          <span>VS</span>
+        </div>
+        
+        {/* Карточка соперника */}
+        <div className="dice-american-player-card dice-american-player-card--opponent">
+          <div className="dice-american-player-header">
+            <h3>🤖 Кубики соперника</h3>
+            {opponentReady && (
+              <span className="dice-american-ready-badge">✓ Готов</span>
+            )}
+          </div>
+          <div className="dice-american-dice-row">
             {opponentDice.map((dice, i) => (
-              <div key={i} className={`dice ${isRolling ? 'dice--rolling' : ''}`}>
-                {dice || '?'}
-              </div>
+              <Dice3D key={i} value={dice} isRolling={isRolling} delay={i * 100 + 50} />
             ))}
           </div>
-          <div className="dice-info">
-            <div>Очки: {typeof opponentPoints === 'number' ? opponentPoints : opponentPoints === 'three-of-a-kind' ? 'Три одинаковых!' : opponentPoints}</div>
-            {opponentReady && <div className="ready-indicator">✓ Готов</div>}
+          <div className="dice-american-stats">
+            <div className="dice-american-stat">
+              <span className="dice-american-stat-label">Комбинация</span>
+              <span className={`dice-american-stat-value ${opponentPoints === 'three-of-a-kind' || (typeof opponentPoints === 'number' && opponentPoints > 0) ? 'dice-american-stat-value--good' : ''}`}>
+                {getPointsLabel(calculatePoints(opponentDice))}
+              </span>
+            </div>
           </div>
         </div>
       </div>
       
+      {/* Статус игры */}
       {(isRolling || isProcessingRerolls) && (
-        <div className="game-status">
-          {isProcessingRerolls ? 'Автоматические перебросы...' : 'Бросаем кубики...'}
+        <div className="dice-american-status">
+          <div className="dice-american-spinner"></div>
+          <span>{isProcessingRerolls ? 'Автоматические перебросы...' : 'Бросаем кубики...'}</span>
         </div>
       )}
       
       {playerReady && !opponentReady && !isBlocked && (
-        <div className="game-status">Ожидание соперника...</div>
+        <div className="dice-american-status">
+          <div className="dice-american-spinner"></div>
+          <span>Ожидание соперника...</span>
+        </div>
       )}
       
       {playerReady && opponentReady && !isBlocked && (
-        <div className="game-status">Определение победителя раунда...</div>
+        <div className="dice-american-status dice-american-status--result">
+          <span>🎯 Определение победителя раунда...</span>
+        </div>
       )}
     </div>
   );

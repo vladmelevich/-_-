@@ -33,6 +33,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
   const [isWaiting, setIsWaiting] = useState(false);
   const [roundTied, setRoundTied] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [newCardIndex, setNewCardIndex] = useState(-1);
   const processingRef = useRef(false);
 
   const createDeck = () => {
@@ -54,10 +55,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     return newDeck;
   };
 
-  // ========== МОДУЛЬ ПОДСЧЕТА ОЧКОВ В BLACKJACK ==========
-  // Функция calculateTotal вычисляет сумму очков карт в руке
-  // Обрабатывает тузы (A) как 11 или 1 в зависимости от общей суммы
-  // J, Q, K считаются как 10 очков
   const calculateTotal = (cards) => {
     let total = 0;
     let aces = 0;
@@ -72,7 +69,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       }
     });
     
-    // Обработка тузов: сначала пытаемся использовать как 11, если не перебор
     for (let i = 0; i < aces; i++) {
       if (total + 11 <= 21) {
         total += 11;
@@ -83,7 +79,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     return total;
   };
-  // ========== КОНЕЦ МОДУЛЯ ПОДСЧЕТА ОЧКОВ ==========
 
   const startRound = () => {
     if (processingRef.current || isBlocked || currentRound > rounds) return;
@@ -101,6 +96,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     setIsPlayerTurn(true);
     setRoundTied(false);
     setIsWaiting(false);
+    setNewCardIndex(-1);
     processingRef.current = false;
   };
 
@@ -122,9 +118,12 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     const newPlayerCards = [...playerCards, newCard];
     setPlayerCards(newPlayerCards);
     setDeck(deck.slice(1));
+    setNewCardIndex(newPlayerCards.length - 1);
     
     const newTotal = calculateTotal(newPlayerCards);
     setPlayerTotal(newTotal);
+    
+    setTimeout(() => setNewCardIndex(-1), 600);
     
     if (newTotal > 21) {
       setIsPlayerTurn(false);
@@ -167,14 +166,12 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     const roundNumber = currentRound;
     
-    // Получаем актуальные значения с задержкой для отображения результата
     setTimeout(() => {
       if (isBlocked) {
         processingRef.current = false;
         return;
       }
       
-      // Используем функциональные обновления для получения актуальных значений
       setPlayerTotal(currentPlayerTotal => {
         setOpponentTotal(currentOpponentTotal => {
           let playerWon = false;
@@ -202,12 +199,9 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
                 return;
               }
               setRoundTied(false);
-              // Вызываем onRoundFinish с null для продления раунда при ничьей
               if (onRoundFinish) {
                 onRoundFinish(roundNumber, null);
               }
-              // При ничьей не увеличиваем currentRound - раунд будет переигран
-              // Сбрасываем состояние для переигровки
               setPlayerCards([]);
               setOpponentCards([]);
               setPlayerTotal(0);
@@ -217,8 +211,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
               setIsWaiting(false);
                 processingRef.current = false;
               
-              // Запускаем новый раунд после задержки
-              // Используем принудительный запуск через небольшой таймаут
               setTimeout(() => {
                 if (!isBlocked && currentRound === roundNumber && playerCards.length === 0) {
                   processingRef.current = false;
@@ -229,17 +221,12 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             return currentOpponentTotal;
           }
           
-          // ========== МОДУЛЬ ОБНОВЛЕНИЯ СЧЕТА ИГРОКОВ ==========
-          // Обновляем счет только один раз (только если не ничья)
-          // playerScore и opponentScore - это счет игрока и соперника за всю игру
           if (playerWon) {
             setPlayerScore(prev => prev + 1);
           } else {
             setOpponentScore(prev => prev + 1);
           }
-          // ========== КОНЕЦ МОДУЛЯ ОБНОВЛЕНИЯ СЧЕТА ==========
           
-          // Проверяем условия завершения игры с задержкой, используя функциональные обновления
           setTimeout(() => {
             if (isBlocked) {
               processingRef.current = false;
@@ -248,8 +235,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             
             setPlayerScore(prevPlayer => {
               setOpponentScore(prevOpponent => {
-                // ========== МОДУЛЬ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ИГРЫ ==========
-                // Проверяем, достиг ли кто-то половины раундов (победа досрочно)
                 const halfRounds = Math.ceil(rounds / 2);
                 
                 if (prevPlayer > halfRounds) {
@@ -269,9 +254,7 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
                   }, 2000);
                   return prevOpponent;
                 }
-                // ========== КОНЕЦ МОДУЛЯ ПРОВЕРКИ УСЛОВИЙ ЗАВЕРШЕНИЯ ==========
                 
-                // Переход к следующему раунду с задержкой
                 if (roundNumber < rounds) {
                   setTimeout(() => {
                     if (isBlocked) {
@@ -279,7 +262,6 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
                       return;
                     }
                     if (onRoundFinish) onRoundFinish(roundNumber, playerWon);
-                    // Сбрасываем состояние перед следующим раундом
                     setPlayerCards([]);
                     setOpponentCards([]);
                     setPlayerTotal(0);
@@ -312,81 +294,129 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     }, 1000);
   };
 
+  // Компонент красивой карты
+  const Card = ({ card, index, isNew, isOpponent }) => {
+    const isRed = card.suit === '♥' || card.suit === '♦';
+    
+    return (
+      <div 
+        className={`blackjack-card ${isNew ? 'blackjack-card--new' : ''} ${isOpponent ? 'blackjack-card--opponent' : ''}`}
+        style={{ animationDelay: `${index * 0.1}s` }}
+      >
+        <div className="blackjack-card__inner">
+          <div className={`blackjack-card__front ${isRed ? 'blackjack-card--red' : 'blackjack-card--black'}`}>
+            <span className="blackjack-card__corner blackjack-card__corner--top">
+              <span className="blackjack-card__rank">{card.rank}</span>
+              <span className="blackjack-card__suit-small">{card.suit}</span>
+            </span>
+            <span className="blackjack-card__center-suit">{card.suit}</span>
+            <span className="blackjack-card__corner blackjack-card__corner--bottom">
+              <span className="blackjack-card__rank">{card.rank}</span>
+              <span className="blackjack-card__suit-small">{card.suit}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="blackjack-game">
-      <div className="game-score">
-        <div className="score-item">
-          <span>Вы: {Math.floor(playerScore / 2)}</span>
+      {/* Декоративный фон казино */}
+      <div className="blackjack-table-bg"></div>
+      
+      {/* Счёт игры */}
+      <div className="blackjack-scoreboard">
+        <div className="blackjack-score-item blackjack-score-item--player">
+          <div className="blackjack-score-label">Вы</div>
+          <div className="blackjack-score-value">{Math.floor(playerScore / 2)}</div>
         </div>
-        <div className="score-item">
-          <span>Раунд {Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</span>
+        <div className="blackjack-score-item blackjack-score-item--round">
+          <div className="blackjack-score-label">Раунд</div>
+          <div className="blackjack-score-value">{Math.min(Math.max(currentRound, 1), rounds)}/{rounds}</div>
         </div>
-        <div className="score-item">
-          <span>Соперник: {Math.floor(opponentScore / 2)}</span>
+        <div className="blackjack-score-item blackjack-score-item--opponent">
+          <div className="blackjack-score-label">Дилер</div>
+          <div className="blackjack-score-value">{Math.floor(opponentScore / 2)}</div>
         </div>
       </div>
       
       {roundTied && (
-        <div className="blackjack-tied">Ничья, раунд будет переигран</div>
+        <div className="blackjack-tied-banner">
+          <span className="blackjack-tied-icon">🤝</span>
+          <span>Ничья! Раунд переигрывается...</span>
+        </div>
       )}
       
-      <div className="blackjack-container">
-        <div className="blackjack-hand">
-          <h3>Ваши карты</h3>
-          <div className="cards-row">
-            {playerCards.map((card, i) => (
-              <div key={i} className={`card card--${card.suit === '♥' || card.suit === '♦' ? 'red' : 'black'}`}>
-                <div className="card-rank">{card.rank}</div>
-                <div className={`card-suit card-suit--${card.suit === '♠' ? 'spades' : card.suit === '♥' ? 'hearts' : card.suit === '♦' ? 'diamonds' : 'clubs'}`}>
-                  {card.suit}
-                </div>
-              </div>
-            ))}
+      <div className="blackjack-table">
+        {/* Карты дилера */}
+        <div className="blackjack-hand blackjack-hand--dealer">
+          <div className="blackjack-hand-header">
+            <h3>🎰 Дилер</h3>
+            <div className={`blackjack-total ${opponentTotal > 21 ? 'blackjack-total--bust' : ''}`}>
+              {opponentTotal}
+              {opponentTotal > 21 && <span className="blackjack-bust-label">ПЕРЕБОР!</span>}
+            </div>
           </div>
-          <div className="hand-total">
-            Очков: {playerTotal} {playerTotal > 21 && <span className="bust">Перебор!</span>}
+          <div className="blackjack-cards">
+            {opponentCards.map((card, i) => (
+              <Card key={card.id} card={card} index={i} isOpponent={true} />
+            ))}
           </div>
         </div>
         
-        <div className="blackjack-hand">
-          <h3>Карты соперника</h3>
-          <div className="cards-row">
-            {opponentCards.map((card, i) => (
-              <div key={i} className={`card card--${card.suit === '♥' || card.suit === '♦' ? 'red' : 'black'}`}>
-                <div className="card-rank">{card.rank}</div>
-                <div className={`card-suit card-suit--${card.suit === '♠' ? 'spades' : card.suit === '♥' ? 'hearts' : card.suit === '♦' ? 'diamonds' : 'clubs'}`}>
-                  {card.suit}
-                </div>
-              </div>
-            ))}
+        {/* Разделитель */}
+        <div className="blackjack-divider">
+          <div className="blackjack-divider-line"></div>
+          <div className="blackjack-divider-chip">♠️</div>
+          <div className="blackjack-divider-line"></div>
+        </div>
+        
+        {/* Карты игрока */}
+        <div className="blackjack-hand blackjack-hand--player">
+          <div className="blackjack-hand-header">
+            <h3>🃏 Ваши карты</h3>
+            <div className={`blackjack-total ${playerTotal > 21 ? 'blackjack-total--bust' : playerTotal === 21 ? 'blackjack-total--blackjack' : ''}`}>
+              {playerTotal}
+              {playerTotal > 21 && <span className="blackjack-bust-label">ПЕРЕБОР!</span>}
+              {playerTotal === 21 && <span className="blackjack-blackjack-label">БЛЭКДЖЕК!</span>}
+            </div>
           </div>
-          <div className="hand-total">
-            Очков: {opponentTotal} {opponentTotal > 21 && <span className="bust">Перебор!</span>}
+          <div className="blackjack-cards">
+            {playerCards.map((card, i) => (
+              <Card key={card.id} card={card} index={i} isNew={i === newCardIndex} />
+            ))}
           </div>
         </div>
       </div>
       
+      {/* Кнопки действий */}
       {isPlayerTurn && !isWaiting && !isBlocked && (
         <div className="blackjack-actions">
           <button 
-            className="blackjack-button" 
+            className="blackjack-btn blackjack-btn--hit" 
             onClick={handleHit}
             disabled={playerTotal >= 21 || isBlocked || deck.length === 0}
           >
-            Взять карту
+            <span className="blackjack-btn-icon">🎴</span>
+            <span className="blackjack-btn-text">Взять карту</span>
           </button>
           <button 
-            className="blackjack-button blackjack-button--stand" 
+            className="blackjack-btn blackjack-btn--stand" 
             onClick={handleStand}
             disabled={isBlocked}
           >
-            Остановиться
+            <span className="blackjack-btn-icon">✋</span>
+            <span className="blackjack-btn-text">Хватит</span>
           </button>
         </div>
       )}
       
       {isWaiting && (
-        <div className="blackjack-waiting">Ожидание хода соперника...</div>
+        <div className="blackjack-waiting-indicator">
+          <div className="blackjack-waiting-spinner"></div>
+          <span>Дилер принимает решение...</span>
+        </div>
       )}
     </div>
   );

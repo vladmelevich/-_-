@@ -243,39 +243,32 @@ const Sidebar = () => {
               onClick={() => {
                 if (buttonRef.current) {
                   const rect = buttonRef.current.getBoundingClientRect();
-                  const menuWidth = 320; // ширина модального окна
+                  const menuWidth = 320;
                   const viewportWidth = window.innerWidth;
                   
-                  // Проверяем, поместится ли модальное окно справа
                   const spaceRight = viewportWidth - rect.right;
                   const spaceLeft = rect.left;
                   
                   let left, top;
                   
                   if (spaceRight >= menuWidth + 8) {
-                    // Достаточно места справа
                     left = rect.right + 8;
                   } else if (spaceLeft >= menuWidth + 8) {
-                    // Размещаем слева от кнопки
                     left = rect.left - menuWidth - 8;
                   } else {
-                    // Центрируем по горизонтали если не хватает места
                     left = Math.max(8, (viewportWidth - menuWidth) / 2);
                   }
                   
-                  // Проверяем вертикальное позиционирование (приоритет - сверху)
-                  const menuHeight = 400; // примерная высота модального окна
+                  const menuHeight = 400;
                   const viewportHeight = window.innerHeight;
                   const spaceBelow = viewportHeight - rect.bottom;
                   const spaceAbove = rect.top;
                   
-                  // Сначала пытаемся разместить сверху (выше кнопки)
                   if (spaceAbove >= menuHeight) {
                     top = rect.top - menuHeight - 8;
                   } else if (spaceBelow >= menuHeight) {
                     top = rect.bottom + 8;
                   } else {
-                    // Центрируем по вертикали если не хватает места
                     top = Math.max(8, (viewportHeight - menuHeight) / 2);
                   }
                   
@@ -283,214 +276,128 @@ const Sidebar = () => {
                 }
                 setShowLanguageMenu(!showLanguageMenu);
               }}
-              className="flex items-center gap-1 text-xs text-gray-400 font-bold hover:text-white transition-colors px-2 py-1 rounded"
+              className={`flex items-center gap-2 text-xs font-bold transition-all duration-200 px-3 py-2 rounded-lg group
+                ${showLanguageMenu 
+                  ? 'bg-primary/20 text-white border border-primary/50' 
+                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent'
+                }`}
             >
-              <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[10px]">
-                {currentLanguage.code}
-              </span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showLanguageMenu ? 'rotate-180' : ''}`} />
+              <span className="text-base">{currentLanguage.flag}</span>
+              <span className="font-semibold">{currentLanguage.code}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showLanguageMenu ? 'rotate-180' : ''}`} />
             </button>
             
             {showLanguageMenu && currentLanguage && createPortal(
               <>
                 <div 
-                  className="fixed inset-0 bg-black/20 backdrop-blur-sm" 
+                  className="fixed inset-0 bg-black/20 backdrop-blur-sm cursor-pointer" 
                   style={{ zIndex: 999999 }}
-                  onClick={() => setShowLanguageMenu(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLanguageMenu(false);
+                  }}
                 />
                 <div 
-                  className="fixed bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200 w-[320px] max-h-[90vh] overflow-y-auto
+                  className="fixed bg-white rounded-2xl shadow-2xl border border-gray-200 w-[320px] max-h-[90vh] overflow-y-auto
                             max-md:left-1/2 max-md:top-1/2 max-md:-translate-x-1/2 max-md:-translate-y-1/2 max-md:w-[calc(100vw-2rem)]"
                   style={{
                     zIndex: 1000000,
+                    pointerEvents: 'auto',
                     ...(window.innerWidth >= 768 ? {
                       top: `${Math.max(8, Math.min(menuPosition.top, window.innerHeight - 400 - 8))}px`,
                       left: `${Math.max(8, Math.min(menuPosition.left, window.innerWidth - 320 - 8))}px`,
                     } : {})
                   }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {/* Header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <h3 className="text-base font-semibold text-gray-900">{t('languages')}</h3>
+                  <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-r from-primary to-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
+                        <span className="text-white text-sm">🌐</span>
+                      </div>
+                      <h3 className="text-base font-bold text-gray-900">{t('languages')}</h3>
+                    </div>
                     <button
-                      onClick={() => setShowLanguageMenu(false)}
-                      className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowLanguageMenu(false);
+                      }}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors group cursor-pointer active:scale-95"
                     >
-                      <X className="w-4 h-4 text-gray-400" />
+                      <X className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
                     </button>
                   </div>
 
                   {/* Recommended Section */}
-                  <div className="px-4 py-2">
-                    <h4 className="text-xs font-medium text-gray-500 mb-2">{t('recommended')}</h4>
+                  <div className="px-4 py-3">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('recommended')}</h4>
                     <button
-                      onClick={() => { changeLanguage('ru'); setShowLanguageMenu(false); }}
-                      className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
+                      type="button"
+                      onClick={(e) => { 
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Changing language to: ru');
+                        changeLanguage('ru'); 
+                        setShowLanguageMenu(false); 
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 cursor-pointer select-none ${
                         language === 'ru' 
-                          ? 'bg-blue-50' 
-                          : 'hover:bg-gray-50'
+                          ? 'bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/30' 
+                          : 'hover:bg-gray-50 border border-transparent hover:shadow-sm active:scale-[0.98]'
                       }`}
                     >
-                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                        <div className="w-full h-full bg-gradient-to-b from-white via-blue-500 to-red-500"></div>
-                      </div>
+                      <span className="text-2xl">{languages.ru.flag}</span>
                       <div className="flex-1 text-left">
-                        <div className="font-medium text-gray-900 text-sm">{languages.ru.name}</div>
+                        <div className="font-semibold text-gray-900 text-sm">{languages.ru.name}</div>
                         <div className="text-xs text-gray-500">{languages.ru.nativeName}</div>
                       </div>
                       {language === 'ru' && (
-                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" />
+                        <div className="w-6 h-6 bg-gradient-to-r from-primary to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
+                          <Check className="w-3.5 h-3.5 text-white" />
                         </div>
                       )}
                     </button>
                   </div>
 
+                  <div className="h-px bg-gray-100 mx-4"></div>
+
                   {/* All Languages Section */}
-                  <div className="px-4 py-2">
-                    <h4 className="text-xs font-medium text-gray-500 mb-2">{t('allLanguages')}</h4>
+                  <div className="px-4 py-3 pb-4">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t('allLanguages')}</h4>
                     <div className="space-y-1">
-                      {/* Azerbaijani */}
-                      <button
-                        onClick={() => { changeLanguage('az'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'az' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-gradient-to-b from-blue-500 via-red-500 to-green-500"></div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">Azerbaijani</div>
-                          <div className="text-xs text-gray-500">Азербайджанский</div>
-                        </div>
-                        {language === 'az' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
+                      {Object.entries(languages).filter(([key]) => key !== 'ru').map(([langKey, langData]) => (
+                        <button
+                          type="button"
+                          key={langKey}
+                          onClick={(e) => { 
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Changing language to:', langKey);
+                            changeLanguage(langKey); 
+                            setShowLanguageMenu(false); 
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer select-none ${
+                            language === langKey 
+                              ? 'bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/30' 
+                              : 'hover:bg-gray-50 border border-transparent hover:shadow-sm active:scale-[0.98]'
+                          }`}
+                        >
+                          <span className="text-xl">{langData.flag}</span>
+                          <div className="flex-1 text-left">
+                            <div className="font-medium text-gray-900 text-sm">{langData.name}</div>
+                            <div className="text-xs text-gray-500">{langData.nativeName}</div>
                           </div>
-                        )}
-                      </button>
-
-                      {/* English */}
-                      <button
-                        onClick={() => { changeLanguage('en'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'en' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-gradient-to-br from-blue-600 via-white to-red-600 relative">
-                            <div className="absolute inset-0 bg-blue-600"></div>
-                            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white to-transparent"></div>
-                            <div className="absolute inset-0 bg-gradient-to-tl from-red-600 via-transparent to-transparent"></div>
-                          </div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">English (World)</div>
-                          <div className="text-xs text-gray-500">Английский (международный)</div>
-                        </div>
-                        {language === 'en' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Kyrgyz */}
-                      <button
-                        onClick={() => { changeLanguage('ky'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'ky' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-red-500"></div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">Кыргызча</div>
-                          <div className="text-xs text-gray-500">Кыргызский</div>
-                        </div>
-                        {language === 'ky' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Moldovan */}
-                      <button
-                        onClick={() => { changeLanguage('ro'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'ro' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500"></div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">Moldovan</div>
-                          <div className="text-xs text-gray-500">Молдавский</div>
-                        </div>
-                        {language === 'ro' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Belarusian */}
-                      <button
-                        onClick={() => { changeLanguage('be'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'be' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-gradient-to-b from-red-500 via-green-500 to-red-500"></div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">Беларуская</div>
-                          <div className="text-xs text-gray-500">Белорусский</div>
-                        </div>
-                        {language === 'be' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Ukrainian */}
-                      <button
-                        onClick={() => { changeLanguage('uk'); setShowLanguageMenu(false); }}
-                        className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-all ${
-                          language === 'uk' 
-                            ? 'bg-blue-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full bg-gradient-to-b from-blue-500 to-yellow-400"></div>
-                        </div>
-                        <div className="flex-1 text-left">
-                          <div className="font-medium text-gray-900 text-sm">Українська</div>
-                          <div className="text-xs text-gray-500">Украинский</div>
-                        </div>
-                        {language === 'uk' && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </button>
+                          {language === langKey && (
+                            <div className="w-5 h-5 bg-gradient-to-r from-primary to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-primary/30">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
