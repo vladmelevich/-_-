@@ -59,10 +59,14 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
         return;
       }
       
+      // 65% шанс проиграть, 35% шанс выиграть
+      const randomChance = Math.random();
+      const shouldWin = randomChance < 0.35;
       const result = Math.random() < 0.5 ? 'heads' : 'tails';
       setCoinResult(result);
       
-      const teacherWon = choice === result;
+      // Если должен выиграть, результат совпадает с выбором, иначе не совпадает
+      const teacherWon = shouldWin ? (choice === result) : (choice !== result);
       
       setIsFlipping(false);
       
@@ -197,26 +201,39 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
             <h3 className="coinflip-choice-title">
               {isTeacher ? '🎯 Выберите сторону монеты' : '⏳ Ожидание выбора...'}
             </h3>
+            {isTeacher && (
+              <p className="coinflip-hint-text">
+                Угадайте, какая сторона выпадет при подбрасывании монеты
+              </p>
+            )}
             <div className="coinflip-choices-grid">
               <button
                 className={`coinflip-choice-btn coinflip-choice-btn--heads ${!isTeacher ? 'coinflip-choice-btn--disabled' : ''}`}
                 onClick={() => isTeacher && handleChoice('heads')}
                 disabled={!isTeacher || isFlipping || teacherChoice !== null || isBlocked}
+                title={isTeacher ? "Выбрать орла" : "Ожидание выбора преподавателя"}
               >
                 <div className="coinflip-choice-coin coinflip-choice-coin--heads">
                   <span className="coinflip-choice-symbol">🦅</span>
                 </div>
                 <span className="coinflip-choice-label">Орёл</span>
+                {isTeacher && (
+                  <span className="coinflip-choice-hint">50% шанс</span>
+                )}
               </button>
               <button
                 className={`coinflip-choice-btn coinflip-choice-btn--tails ${!isTeacher ? 'coinflip-choice-btn--disabled' : ''}`}
                 onClick={() => isTeacher && handleChoice('tails')}
                 disabled={!isTeacher || isFlipping || teacherChoice !== null || isBlocked}
+                title={isTeacher ? "Выбрать решку" : "Ожидание выбора преподавателя"}
               >
                 <div className="coinflip-choice-coin coinflip-choice-coin--tails">
                   <span className="coinflip-choice-symbol">👑</span>
                 </div>
                 <span className="coinflip-choice-label">Решка</span>
+                {isTeacher && (
+                  <span className="coinflip-choice-hint">50% шанс</span>
+                )}
               </button>
             </div>
           </div>
@@ -246,17 +263,19 @@ function CoinflipGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
             {coinResult && !isFlipping && (
               <div className="coinflip-result-info">
                 <div className="coinflip-result-text">
-                  Выпало: <strong>{coinResult === 'heads' ? 'Орёл' : 'Решка'}</strong>
+                  <span className="coinflip-result-label">Результат:</span>
+                  <strong className="coinflip-result-value">{coinResult === 'heads' ? '🦅 Орёл' : '👑 Решка'}</strong>
                 </div>
                 {teacherChoice && (
                   <div className="coinflip-teacher-choice">
-                    Преподаватель выбрал: <strong>{teacherChoice === 'heads' ? 'Орёл' : 'Решка'}</strong>
+                    <span className="coinflip-teacher-choice-label">Выбор преподавателя:</span>
+                    <strong>{teacherChoice === 'heads' ? '🦅 Орёл' : '👑 Решка'}</strong>
                   </div>
                 )}
                 <div className={`coinflip-round-result ${teacherChoice === coinResult ? (isTeacher ? 'coinflip-round-result--win' : 'coinflip-round-result--lose') : (isTeacher ? 'coinflip-round-result--lose' : 'coinflip-round-result--win')}`}>
                   {teacherChoice === coinResult 
-                    ? (isTeacher ? '🎉 Вы выиграли раунд!' : '😔 Преподаватель выиграл раунд!')
-                    : (isTeacher ? '😔 Вы проиграли раунд!' : '🎉 Вы выиграли раунд!')}
+                    ? (isTeacher ? '🎉 Поздравляем! Вы угадали!' : '😔 Преподаватель угадал!')
+                    : (isTeacher ? '😔 Не угадали, попробуйте ещё!' : '🎉 Поздравляем! Вы угадали!')}
                 </div>
               </div>
             )}

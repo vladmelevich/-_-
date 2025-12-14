@@ -4,12 +4,12 @@ import { NavLink, Link } from 'react-router-dom';
 import { 
   Home, Gift, Zap, Gamepad2, Dice5, MessageCircle, 
   Download, LogIn, UserPlus, Settings, LogOut, Dna, Crown,
-  Instagram, Send, Music, ChevronDown, X, Check
+  Instagram, Send, Music, ChevronDown, X, Check, GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
-const Sidebar = () => {
+const Sidebar = ({ onClose }) => {
   const { user, logout } = useAuth();
   const { t, language, changeLanguage } = useLanguage();
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -111,8 +111,26 @@ const Sidebar = () => {
 
   return (
     <aside className="w-[280px] bg-sidebar flex-shrink-0 flex flex-col h-screen sticky top-0 border-r border-white/5 overflow-y-auto custom-scrollbar z-30">
+      {/* Mobile Close Button */}
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-white/5">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
+          <div className="w-8 h-8 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <span className="font-bold text-lg text-white">M</span>
+          </div>
+          <div>
+            <h1 className="text-white font-bold text-base tracking-wide">MCB</h1>
+          </div>
+        </Link>
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      
       {/* Brand */}
-      <Link to="/" className="p-6 flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
+      <Link to="/" className="hidden lg:flex p-6 items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
         <div className="w-10 h-10 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
           <span className="font-bold text-xl text-white">M</span>
         </div>
@@ -145,7 +163,7 @@ const Sidebar = () => {
             <img src={user.avatar} alt="avatar" className="w-10 h-10 rounded-lg bg-gray-800" />
             <div className="flex-1 min-w-0">
               <div className="text-white font-bold truncate">{user.username}</div>
-              <div className="text-accent text-sm font-mono">{user.balance.toLocaleString()} ₽</div>
+              <div className="text-accent text-sm font-mono">{user.credits?.toLocaleString() || 0} зач.</div>
             </div>
             <button 
               onClick={(e) => {
@@ -178,6 +196,14 @@ const Sidebar = () => {
         <NavItem to="/" icon={Home} label={t('home')} />
         <NavItem to="/bonuses" icon={Gift} label={t('bonuses')} badge="4" />
         <NavItem to="/promotions" icon={Zap} label={t('promotions')} />
+        
+        {/* Admin Panel Link */}
+        {user && user.role === 'admin' && (
+          <>
+            <div className="my-4 border-t border-white/5 mx-2"></div>
+            <NavItem to="/teacher" icon={GraduationCap} label="Преподавательская" />
+          </>
+        )}
         
         <div className="my-4 border-t border-white/5 mx-2"></div>
         

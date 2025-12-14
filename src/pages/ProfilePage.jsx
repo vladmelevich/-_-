@@ -57,7 +57,7 @@ const ProfilePage = () => {
                 <Wallet className="w-5 h-5 text-accent" />
                 <div className="flex-1">
                   <p className="text-xs text-gray-400">{t('balance')}</p>
-                  <p className="text-lg font-bold text-white">{user.balance.toLocaleString()} ₽</p>
+                  <p className="text-lg font-bold text-white">{user.credits?.toLocaleString() || 0} зач.</p>
                 </div>
               </div>
 
@@ -121,25 +121,25 @@ const ProfilePage = () => {
               <Award className="w-5 h-5 text-primary" />
               {t('statistics')}
             </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-white/5 rounded-xl">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 bg-white/5 rounded-xl">
+                <p className="text-xs text-gray-400 mb-1">{t('wins')}</p>
+                <p className="text-xl sm:text-2xl font-bold text-accent">{user.wins || 0}</p>
+              </div>
+              <div className="p-3 sm:p-4 bg-white/5 rounded-xl">
+                <p className="text-xs text-gray-400 mb-1">{t('losses')}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-400">{user.losses || 0}</p>
+              </div>
+              <div className="p-3 sm:p-4 bg-white/5 rounded-xl">
                 <p className="text-xs text-gray-400 mb-1">{t('totalGames')}</p>
-                <p className="text-2xl font-bold text-white">{user.totalGames || 0}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{(user.wins || 0) + (user.losses || 0)}</p>
               </div>
-              <div className="p-4 bg-white/5 rounded-xl">
-                <p className="text-xs text-gray-400 mb-1">{t('totalWins')}</p>
-                <p className="text-2xl font-bold text-accent">{user.totalWins || 0}</p>
-              </div>
-              <div className="p-4 bg-white/5 rounded-xl">
+              <div className="p-3 sm:p-4 bg-white/5 rounded-xl col-span-2 lg:col-span-1">
                 <p className="text-xs text-gray-400 mb-1">{t('memberSince')}</p>
-                <p className="text-lg font-bold text-white flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                <p className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
                   {user.memberSince || t('today')}
                 </p>
-              </div>
-              <div className="p-4 bg-white/5 rounded-xl">
-                <p className="text-xs text-gray-400 mb-1">{t('level')}</p>
-                <p className="text-2xl font-bold text-primary">{user.level || 1}</p>
               </div>
             </div>
           </div>

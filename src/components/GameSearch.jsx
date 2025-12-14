@@ -113,8 +113,8 @@ const GameSearch = () => {
   return (
     <div className="relative flex-1 max-w-xl" ref={searchRef}>
       <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+        <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
+          <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
         </div>
         <input
           type="text"
@@ -126,7 +126,7 @@ const GameSearch = () => {
               setIsOpen(true);
             }
           }}
-          className="block w-full pl-11 pr-10 py-3 bg-[#130f1f] border border-white/5 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+          className="block w-full pl-9 sm:pl-11 pr-8 sm:pr-10 py-2 sm:py-3 bg-[#130f1f] border border-white/5 rounded-lg sm:rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
           placeholder={t('searchGames')}
         />
         {searchQuery && (

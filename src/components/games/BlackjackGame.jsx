@@ -177,18 +177,28 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
           let playerWon = false;
           let tied = false;
           
+          // Определяем результат по логике игры
+          let logicalResult = false;
           if (playerBusted || currentPlayerTotal > 21) {
-            playerWon = false;
+            logicalResult = false;
           } else if (currentOpponentTotal > 21) {
-            playerWon = true;
+            logicalResult = true;
           } else if (currentPlayerTotal <= 21 && currentOpponentTotal <= 21) {
             if (currentPlayerTotal > currentOpponentTotal) {
-              playerWon = true;
+              logicalResult = true;
             } else if (currentPlayerTotal < currentOpponentTotal) {
-              playerWon = false;
+              logicalResult = false;
             } else {
               tied = true;
             }
+          }
+          
+          // 65% шанс проиграть, 35% шанс выиграть (применяем только если не перебор)
+          if (!tied && !playerBusted && currentPlayerTotal <= 21) {
+            const randomChance = Math.random();
+            playerWon = randomChance < 0.35 ? logicalResult : !logicalResult;
+          } else {
+            playerWon = logicalResult;
           }
           
           if (tied) {
@@ -393,22 +403,30 @@ function BlackjackGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       {/* Кнопки действий */}
       {isPlayerTurn && !isWaiting && !isBlocked && (
         <div className="blackjack-actions">
-          <button 
-            className="blackjack-btn blackjack-btn--hit" 
-            onClick={handleHit}
-            disabled={playerTotal >= 21 || isBlocked || deck.length === 0}
-          >
-            <span className="blackjack-btn-icon">🎴</span>
-            <span className="blackjack-btn-text">Взять карту</span>
-          </button>
-          <button 
-            className="blackjack-btn blackjack-btn--stand" 
-            onClick={handleStand}
-            disabled={isBlocked}
-          >
-            <span className="blackjack-btn-icon">✋</span>
-            <span className="blackjack-btn-text">Хватит</span>
-          </button>
+          <div className="blackjack-hint">
+            <span className="blackjack-hint-icon">💡</span>
+            <span className="blackjack-hint-text">Цель: набрать 21 очко или максимально близко, не превышая</span>
+          </div>
+          <div className="blackjack-buttons-row">
+            <button 
+              className="blackjack-btn blackjack-btn--hit" 
+              onClick={handleHit}
+              disabled={playerTotal >= 21 || isBlocked || deck.length === 0}
+              title={playerTotal >= 21 ? "Уже 21 или больше!" : "Взять ещё одну карту"}
+            >
+              <span className="blackjack-btn-icon">🎴</span>
+              <span className="blackjack-btn-text">Взять карту</span>
+            </button>
+            <button 
+              className="blackjack-btn blackjack-btn--stand" 
+              onClick={handleStand}
+              disabled={isBlocked}
+              title="Остановиться и передать ход дилеру"
+            >
+              <span className="blackjack-btn-icon">✋</span>
+              <span className="blackjack-btn-text">Хватит</span>
+            </button>
+          </div>
         </div>
       )}
       

@@ -166,8 +166,8 @@ const HomePage = () => {
           >
             {/* Duplicate slides for infinite scroll effect */}
             {[...carouselImages, ...carouselImages, ...carouselImages].map((image, index) => (
-              <div key={index} className="flex-shrink-0 w-1/3 relative">
-                <div className="relative overflow-hidden rounded-3xl h-64 shadow-lg group hover:scale-[1.02] transition-transform duration-300">
+              <div key={index} className="flex-shrink-0 w-full sm:w-1/2 lg:w-1/3 relative">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl h-48 sm:h-56 lg:h-64 shadow-lg group hover:scale-[1.02] transition-transform duration-300">
                   <img
                     src={image.src}
                     alt={image.alt}

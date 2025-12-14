@@ -106,23 +106,32 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
         
         if (blocked) {
           setRoundResult('blocked');
-          const playerWon = isDefender;
+          // 65% шанс проиграть, 35% шанс выиграть
+          const randomChance = Math.random();
+          const shouldWin = randomChance < 0.35;
+          const playerWon = shouldWin ? isDefender : !isDefender;
           setIsBlocked(true);
           processingRef.current = false;
           setTimeout(() => {
             if (onGameFinish) onGameFinish(playerWon);
           }, 3000);
         } else {
-          const attackerWon = true;
-          setPlayerScore(prev => prev + 1);
-          setRoundResult('scored');
+          // 65% шанс проиграть, 35% шанс выиграть
+          const randomChance = Math.random();
+          const attackerWon = randomChance < 0.35;
+          if (attackerWon) {
+            setPlayerScore(prev => prev + 1);
+          } else {
+            setOpponentScore(prev => prev + 1);
+          }
+          setRoundResult(attackerWon ? 'scored' : 'blocked');
           setIsWaiting(false);
           
           setCurrentRound(prevRound => {
             if (prevRound === roundNumber && prevRound < totalRounds) {
               const nextRound = prevRound + 1;
               setTimeout(() => {
-                if (onRoundFinish) onRoundFinish(prevRound, attackerWon);
+                if (onRoundFinish) onRoundFinish(prevRound, attackerWon && isAttacker);
                 processingRef.current = false;
                 setShowAnimation(false);
                 setGoalkeeperPosition(null);
@@ -314,15 +323,21 @@ function FootballGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGa
       <div className="football-instructions">
         {isAttacker && isPlayerTurn && !isWaiting && !isBlocked && playerAttack === null && (
           <div className="football-instruction-card">
-            <span className="football-instruction-icon">⚽</span>
-            <span className="football-instruction-text">Выберите угол ворот для удара</span>
+            <div>
+              <span className="football-instruction-icon">⚽</span>
+              <span className="football-instruction-text">Выберите угол ворот для удара</span>
+            </div>
+            <span className="football-instruction-hint">Цельтесь в угол, который защитник не выберет!</span>
           </div>
         )}
         
         {isDefender && isPlayerTurn && !isWaiting && !isBlocked && opponentDefense === null && (
           <div className="football-instruction-card">
-            <span className="football-instruction-icon">🧤</span>
-            <span className="football-instruction-text">Выберите угол для прыжка вратаря</span>
+            <div>
+              <span className="football-instruction-icon">🧤</span>
+              <span className="football-instruction-text">Выберите угол для прыжка вратаря</span>
+            </div>
+            <span className="football-instruction-hint">Угадайте, куда полетит мяч, чтобы сделать сейв!</span>
           </div>
         )}
         

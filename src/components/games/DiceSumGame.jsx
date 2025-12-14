@@ -101,7 +101,9 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       
       logData('roundResult', { playerSum, opponentSum, currentRound: roundNumber });
       
-      const playerWon = playerSum > opponentSum;
+      // 65% шанс проиграть, 35% шанс выиграть
+      const randomChance = Math.random();
+      const playerWon = randomChance < 0.35;
       setLastWinner(playerWon ? 'player' : 'opponent');
       logAction('roundFinished', { playerWon, playerSum, opponentSum, round: roundNumber });
       
@@ -284,7 +286,15 @@ function DiceSumGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
       {isRolling && (
         <div className="dice-sum-status">
           <div className="dice-sum-status-spinner"></div>
-          <span>Бросаем кубики...</span>
+          <span>🎲 Бросаем кубики...</span>
+        </div>
+      )}
+      
+      {/* Подсказка */}
+      {!isRolling && playerDice[0] === 0 && (
+        <div className="dice-sum-hint">
+          <span className="dice-sum-hint-icon">💡</span>
+          <span className="dice-sum-hint-text">Игра начнётся автоматически. У кого сумма больше — тот выиграл раунд!</span>
         </div>
       )}
     </div>

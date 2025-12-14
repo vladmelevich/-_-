@@ -9,6 +9,8 @@ import NvutiGame from './games/NvutiGame.jsx';
 import FootballGame from './games/FootballGame.jsx';
 import BlackjackGame from './games/BlackjackGame.jsx';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationsContext';
 import { log, logError, logAction, logState, logData, validateAndLog } from '../utils/devMode.js';
 
 const modeDescriptions = {
@@ -20,8 +22,10 @@ const modeDescriptions = {
   nvuti: 'Nvuti - вы выбираете числа 1-50 или 51-100, и в каком промежутке выпадет случайное число тот и выигрывает раунд.'
 };
 
-function ModePage({ modeId, modeLabel, onBack }) {
+function ModePage({ modeId, modeLabel, onBack, isGuestMode = false }) {
   const { t } = useLanguage();
+  const { user, loading, updateGameResult } = useAuth();
+  const { addNotification } = useNotifications();
   
   // Базовые состояния
   const [playerRole, setPlayerRole] = useState(() => {
@@ -224,6 +228,12 @@ function ModePage({ modeId, modeLabel, onBack }) {
   };
   
   const handleCreateSession = () => {
+    // Проверка авторизации
+    if (!user || isGuestMode) {
+      alert('Для создания сессии необходимо войти в систему');
+      return;
+    }
+    
     logAction('createSession', { modeId, playerRole, rounds, playerName });
     
     const finalRounds = modeId === 'football' ? 3 : rounds;
@@ -276,6 +286,12 @@ function ModePage({ modeId, modeLabel, onBack }) {
   };
   
   const handlePlayWithBot = () => {
+    // Проверка авторизации
+    if (!user || isGuestMode) {
+      alert('Для игры необходимо войти в систему');
+      return;
+    }
+    
     logAction('playWithBot', { modeId, playerRole, rounds, playerName });
     
     const finalRounds = modeId === 'football' ? 3 : rounds;
@@ -318,6 +334,12 @@ function ModePage({ modeId, modeLabel, onBack }) {
   };
   
   const handleJoinSession = (sessionId) => {
+    // Проверка авторизации
+    if (!user || isGuestMode) {
+      alert('Для присоединения к сессии необходимо войти в систему');
+      return;
+    }
+    
     logAction('joinSession', { sessionId, playerRole });
     
     if (!sessionId || typeof sessionId !== 'string') {
@@ -479,6 +501,20 @@ function ModePage({ modeId, modeLabel, onBack }) {
       return;
     }
     
+    // Обновляем зачеты и статистику только для авторизованных пользователей
+    if (user && updateGameResult) {
+      updateGameResult(isWinner);
+      
+      // Добавляем уведомление о результате игры
+      addNotification({
+        title: isWinner ? '🎉 Победа!' : '😔 Поражение',
+        message: isWinner 
+          ? `Вы выиграли игру "${modeLabel}"! Получен 1 зачет.`
+          : `Вы проиграли игру "${modeLabel}". Зачет списан.`,
+        type: isWinner ? 'success' : 'error'
+      });
+    }
+    
     setGameState('finished');
     setGameResult(isWinner);
     
@@ -550,6 +586,19 @@ function ModePage({ modeId, modeLabel, onBack }) {
     }
   };
   
+  // Остановка игры если пользователь разлогинился
+  useEffect(() => {
+    if (!loading && !user && gameState === 'playing') {
+      setGameState('idle');
+      setGameRounds(null);
+      setIsBotGame(false);
+      if (mySessionId) {
+        setSessions(prev => prev.filter(s => s.id !== mySessionId));
+        setMySessionId(null);
+      }
+    }
+  }, [user, loading, gameState, mySessionId]);
+
   // Фильтрация сессий
   const filteredSessions = sessions.filter((session) => {
     if (modeFilter && session.mode !== modeId) return false;
@@ -569,6 +618,25 @@ function ModePage({ modeId, modeLabel, onBack }) {
         <h1 className="mode-page__title">{modeLabel}</h1>
         <div></div>
       </div>
+      
+      {!loading && !user && isGuestMode && (
+        <div style={{ 
+          padding: '20px', 
+          margin: '20px', 
+          backgroundColor: 'rgba(141, 92, 255, 0.1)', 
+          border: '1px solid rgba(141, 92, 255, 0.3)', 
+          borderRadius: '12px',
+          textAlign: 'center',
+          color: '#8d5cff'
+        }}>
+          <p style={{ marginBottom: '10px', fontSize: '16px', fontWeight: 'bold' }}>
+            Вы просматриваете игры в режиме гостя
+          </p>
+          <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.7)', margin: 0 }}>
+            Для участия в играх необходимо войти в систему
+          </p>
+        </div>
+      )}
       
       <div className={`mode-page__content ${gameState === 'waiting' ? 'mode-page__content--dimmed' : ''}`}>
         <div className="mode-page__sidebar">
@@ -648,7 +716,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button"
                   type="button"
                   onClick={handleCreateSession}
-                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
+                  disabled={!user || isGuestMode || !rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
                   {t('createSession')}
                 </button>
@@ -656,7 +724,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button create-session-button--bot"
                   type="button"
                   onClick={handlePlayWithBot}
-                  disabled={!rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
+                  disabled={!user || isGuestMode || !rounds || rounds <= 0 || rounds % 2 === 0 || gameState === 'playing' || gameState === 'waiting'}
                 >
                   {t('playWithBot')}
                 </button>
@@ -682,7 +750,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button"
                   type="button"
                   onClick={handleCreateSession}
-                  disabled={gameState === 'playing' || gameState === 'waiting'}
+                  disabled={!user || isGuestMode || gameState === 'playing' || gameState === 'waiting'}
                 >
                   {t('createSession')}
                 </button>
@@ -690,7 +758,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                   className="create-session-button create-session-button--bot"
                   type="button"
                   onClick={handlePlayWithBot}
-                  disabled={gameState === 'playing' || gameState === 'waiting'}
+                  disabled={!user || isGuestMode || gameState === 'playing' || gameState === 'waiting'}
                 >
                   {t('playWithBot')}
                 </button>
@@ -740,7 +808,7 @@ function ModePage({ modeId, modeLabel, onBack }) {
                     <button
                       className="session-card__join-button"
                       type="button"
-                      disabled={!canJoin || gameState === 'playing' || gameState === 'waiting'}
+                      disabled={!user || isGuestMode || !canJoin || gameState === 'playing' || gameState === 'waiting'}
                       onClick={() => canJoin && handleJoinSession(session.id)}
                     >
                       {canJoin ? t('join') : t('unavailable')}
@@ -759,7 +827,8 @@ function ModePage({ modeId, modeLabel, onBack }) {
 ModePage.propTypes = {
   modeId: PropTypes.string.isRequired,
   modeLabel: PropTypes.string.isRequired,
-  onBack: PropTypes.func.isRequired
+  onBack: PropTypes.func.isRequired,
+  isGuestMode: PropTypes.bool
 };
 
 export default ModePage;

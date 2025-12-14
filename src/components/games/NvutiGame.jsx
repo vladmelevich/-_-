@@ -30,6 +30,7 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
   const [isBlocked, setIsBlocked] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [displayNumber, setDisplayNumber] = useState(null);
+  const [finalPlayerWon, setFinalPlayerWon] = useState(null);
   const processingRef = useRef(false);
 
   const isTeacher = playerRole === 'teacher';
@@ -85,7 +86,11 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
             return;
           }
           
-          const playerWon = isTeacher ? teacherWon : !teacherWon;
+          // 65% шанс проиграть, 35% шанс выиграть
+          const randomChance = Math.random();
+          const shouldWin = randomChance < 0.35;
+          const playerWon = shouldWin ? (isTeacher ? teacherWon : !teacherWon) : !(isTeacher ? teacherWon : !teacherWon);
+          setFinalPlayerWon(playerWon);
           
           if (playerWon) {
             setPlayerScore(prev => prev + 1);
@@ -127,6 +132,7 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
                     setTeacherChoice(null);
                     setRandomNumber(null);
                     setDisplayNumber(null);
+                    setFinalPlayerWon(null);
                     setCurrentRound(roundNumber + 1);
                     processingRef.current = false;
                   }, 2500);
@@ -154,6 +160,7 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
       setTeacherChoice(null);
       setRandomNumber(null);
       setDisplayNumber(null);
+      setFinalPlayerWon(null);
       setIsWaiting(false);
       setIsSpinning(false);
       processingRef.current = false;
@@ -175,9 +182,10 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
   }, [isBotGame, isTeacher, currentRound, isBlocked, teacherChoice, isWaiting]);
 
   const getResultInfo = () => {
-    if (!randomNumber || !teacherChoice) return null;
+    if (!randomNumber || !teacherChoice || finalPlayerWon === null) return null;
     const teacherWon = (teacherChoice === 'low' && randomNumber <= 50) || (teacherChoice === 'high' && randomNumber > 50);
-    const playerWon = isTeacher ? teacherWon : !teacherWon;
+    // Используем сохранённый результат с учётом вероятности 65/35
+    const playerWon = finalPlayerWon;
     return { teacherWon, playerWon };
   };
 
@@ -232,6 +240,11 @@ function NvutiGame({ rounds, onRoundFinish, onGameFinish, playerRole, isBotGame 
             <h3 className="nvuti-choice-title">
               {isTeacher ? '🎲 Выберите диапазон чисел' : '⏳ Ожидание выбора...'}
             </h3>
+            {isTeacher && (
+              <p className="nvuti-hint-text">
+                Угадайте, в каком диапазоне выпадет случайное число от 1 до 100
+              </p>
+            )}
             <div className="nvuti-choice-cards">
               <button
                 className={`nvuti-choice-card nvuti-choice-card--low ${!isTeacher ? 'nvuti-choice-card--disabled' : ''}`}

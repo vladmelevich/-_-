@@ -379,13 +379,21 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
     
     const roundNumber = currentRound;
     
-    logAction('roundFinished', { roundWinner, playerPts, opponentPts, currentRound: roundNumber });
+    // 65% шанс проиграть, 35% шанс выиграть
+    let finalRoundWinner = roundWinner;
+    if (roundWinner !== null) {
+      const randomChance = Math.random();
+      const shouldWin = randomChance < 0.35;
+      finalRoundWinner = shouldWin ? roundWinner : !roundWinner;
+    }
     
-    if (roundWinner === null) {
+    logAction('roundFinished', { roundWinner: finalRoundWinner, playerPts, opponentPts, currentRound: roundNumber });
+    
+    if (finalRoundWinner === null) {
       setRoundTied(true);
-    } else if (roundWinner === true) {
+    } else if (finalRoundWinner === true) {
       setPlayerScore(prev => prev + 1);
-    } else if (roundWinner === false) {
+    } else if (finalRoundWinner === false) {
       setOpponentScore(prev => prev + 1);
     }
     
@@ -420,7 +428,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
             return prevOpponent;
           }
           
-          if (roundWinner === null) {
+          if (finalRoundWinner === null) {
             setTimeout(() => {
               if (isBlocked) {
                 processingRef.current = false;
@@ -452,7 +460,7 @@ function DiceAmericanGame({ rounds, onRoundFinish, onGameFinish, isBotGame }) {
                 return;
               }
               if (onRoundFinish) {
-                onRoundFinish(roundNumber, roundWinner);
+                onRoundFinish(roundNumber, finalRoundWinner);
               }
               setPlayerDice([0, 0, 0]);
               setOpponentDice([0, 0, 0]);

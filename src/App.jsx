@@ -13,8 +13,11 @@ import NewGamesPage from './pages/NewGamesPage';
 import TableGamesPage from './pages/TableGamesPage';
 import SupportPage from './pages/SupportPage';
 import ProfilePage from './pages/ProfilePage';
+import TeacherPanelPage from './pages/TeacherPanelPage';
 import { AuthProvider } from './context/AuthContext';
+import { UsersProvider } from './context/UsersContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import { log } from './utils/devMode.js';
 import './styles.css';
 
@@ -25,9 +28,11 @@ function App() {
 
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <MainLayout>
+      <UsersProvider>
+        <AuthProvider>
+          <NotificationsProvider>
+            <BrowserRouter>
+            <MainLayout>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/game/:id" element={<GamePage />} />
@@ -44,12 +49,15 @@ function App() {
               <Route path="/table" element={<TableGamesPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/teacher" element={<TeacherPanelPage />} />
               
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </MainLayout>
         </BrowserRouter>
+          </NotificationsProvider>
       </AuthProvider>
+      </UsersProvider>
     </LanguageProvider>
   );
 }
