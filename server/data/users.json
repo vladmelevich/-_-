@@ -31,5 +31,38 @@
     "losses": 0,
     "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=ivan",
     "createdAt": 1765720111041
+  },
+  {
+    "id": "1765725157033",
+    "username": "123123",
+    "password": "$2a$10$DhO.eifSChowXWvz7RuPjOcu3sjSZeylWJpUFIky.IaljJfJfjKEy",
+    "role": "user",
+    "credits": 0,
+    "wins": 0,
+    "losses": 1,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=123123",
+    "createdAt": 1765725157033
+  },
+  {
+    "id": "1765797528953",
+    "username": "Iliav",
+    "password": "$2a$10$z.RLRYTYpRpSKf.LohvyPeFG0OB3.Xw12lUVa1xqqyG/kOJOXj1LS",
+    "role": "user",
+    "credits": 0,
+    "wins": 0,
+    "losses": 0,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Iliav",
+    "createdAt": 1765797528953
+  },
+  {
+    "id": "1765798266510",
+    "username": "ZeroType",
+    "password": "$2a$10$uQjQqksuR6V1meb9qowfX.w24D5E0G2bZvvtEgejzgo96RzM2VCsy",
+    "role": "user",
+    "credits": 6,
+    "wins": 10,
+    "losses": 14,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=ZeroType",
+    "createdAt": 1765798266510
   }
 ]
