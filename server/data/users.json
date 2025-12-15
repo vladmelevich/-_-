@@ -1,0 +1,35 @@
+[
+  {
+    "id": "admin_001",
+    "username": "admin",
+    "password": "$2a$10$RDHvKxteh3jkJz88wW7lUu8RsmFy6FpoWNyM3yN8Zj73LIEmbd3bS",
+    "role": "admin",
+    "credits": 0,
+    "wins": 0,
+    "losses": 0,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
+    "createdAt": 1765714127002
+  },
+  {
+    "id": "1765714722925",
+    "username": "user",
+    "password": "$2a$10$T.dhauLF2XEIdSKvko/L5ubsEgeaaRWsFF8dKw.EYLvFZ7pMN8wkG",
+    "role": "user",
+    "credits": 0,
+    "wins": 1,
+    "losses": 2,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
+    "createdAt": 1765714722925
+  },
+  {
+    "id": "1765720111041",
+    "username": "ivan",
+    "password": "$2a$10$AEMLieywfy8rd0Ks5cUlb.s19lMnFVyV7sPaf4RnzvoF.z32lx3ia",
+    "role": "user",
+    "credits": 0,
+    "wins": 0,
+    "losses": 0,
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=ivan",
+    "createdAt": 1765720111041
+  }
+]
